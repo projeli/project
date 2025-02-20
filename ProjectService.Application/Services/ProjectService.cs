@@ -10,17 +10,30 @@ namespace ProjectService.Application.Services;
 
 public partial class ProjectService(IProjectRepository repository, IMapper mapper) : IProjectService
 {
-    public async Task<IResult<ProjectDto?>> GetById(Ulid id)
+    public async Task<PagedResult<ProjectDto>> Get(string query, ProjectOrder order, int page, int pageSize, string? fromUserId = null, string? userId = null)
     {
-        var project = await repository.GetById(id);
+        var projectsResult = await repository.Get(query, order, page, Math.Clamp(pageSize, 1, 100), fromUserId, userId);
+        return new PagedResult<ProjectDto>
+        {
+            Data = mapper.Map<List<ProjectDto>>(projectsResult.Data),
+            Page = projectsResult.Page,
+            PageSize = projectsResult.PageSize,
+            TotalCount = projectsResult.TotalCount,
+            TotalPages = projectsResult.TotalPages
+        };
+    }
+
+    public async Task<IResult<ProjectDto?>> GetById(Ulid id, string? userId = null)
+    {
+        var project = await repository.GetById(id, userId);
         return project is not null
             ? new Result<ProjectDto?>(mapper.Map<ProjectDto>(project))
             : Result<ProjectDto?>.NotFound();
     }
 
-    public async Task<IResult<ProjectDto?>> GetBySlug(string slug)
+    public async Task<IResult<ProjectDto?>> GetBySlug(string slug, string? userId = null)
     {
-        var project = await repository.GetBySlug(slug);
+        var project = await repository.GetBySlug(slug, userId);
         return project is not null
             ? new Result<ProjectDto?>(mapper.Map<ProjectDto>(project))
             : Result<ProjectDto?>.NotFound();
@@ -42,6 +55,10 @@ public partial class ProjectService(IProjectRepository repository, IMapper mappe
                 Permissions = ProjectMemberPermissions.All
             }
         ];
+        if (projectDto.IsPublished)
+        {
+            projectDto.PublishedAt = DateTime.UtcNow;
+        }
 
         var validationResult = await ValidateProject(projectDto);
         if (validationResult.Failed) return validationResult;
@@ -98,7 +115,7 @@ public partial class ProjectService(IProjectRepository repository, IMapper mappe
             }
             else
             {
-                var existingProject = await repository.GetBySlug(projectDto.Slug);
+                var existingProject = await repository.GetBySlug(projectDto.Slug, force: true);
 
                 if (existingProject is not null && existingProject.Id != projectDto.Id)
                 {

@@ -1,5 +1,5 @@
-﻿using Microsoft.OpenApi.Models;
-using Swashbuckle.AspNetCore.Filters;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.OpenApi.Models;
 
 namespace ProjectService.Api.Extensions;
 
@@ -21,16 +21,38 @@ public static class SwaggerExtension
             info.Version = "v2";
             options.SwaggerDoc("v2", info);
             
-            options.AddSecurityDefinition("oauth2", new OpenApiSecurityScheme
+            var securityScheme = new OpenApiSecurityScheme
             {
-                In = ParameterLocation.Header,
                 Name = "Authorization",
-                Type = SecuritySchemeType.ApiKey
-            });
+                Description = "Enter '{token}'",
+                In = ParameterLocation.Header,
+                Type = SecuritySchemeType.Http,
+                Scheme = JwtBearerDefaults.AuthenticationScheme,
+                BearerFormat = "JWT"
+            };
     
-            options.OperationFilter<SecurityRequirementsOperationFilter>();
+            options.AddSecurityDefinition("Bearer", securityScheme);
+
+            var securityRequirement = new OpenApiSecurityRequirement
+            {
+                {
+                    new OpenApiSecurityScheme
+                    {
+                        Reference = new OpenApiReference
+                        {
+                            Type = ReferenceType.SecurityScheme,
+                            Id = "Bearer"
+                        }
+                    },
+                    Array.Empty<string>()
+                }
+            };
+
+            options.AddSecurityRequirement(securityRequirement);
             
-            options.EnableAnnotations();
+            // options.OperationFilter<SecurityRequirementsOperationFilter>();
+            
+            // options.EnableAnnotations();
         });
     }
     
