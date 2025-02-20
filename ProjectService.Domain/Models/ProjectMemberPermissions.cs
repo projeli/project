@@ -22,4 +22,5 @@ public enum ProjectMemberPermissions : ulong
     DeleteWikiPages = (ulong) 1 << 30,
     
     DeleteProject = (ulong) 1 << 63,
+    All = ulong.MaxValue
 }

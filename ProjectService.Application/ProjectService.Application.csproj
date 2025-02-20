@@ -10,4 +10,17 @@
       <ProjectReference Include="..\ProjectService.Domain\ProjectService.Domain.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+        <PackageReference Include="AutoMapper" Version="13.0.1" />
+        <PackageReference Include="Microsoft.AspNetCore.Http.Features" Version="2.2.0" />
+        <PackageReference Include="Microsoft.Extensions.Options" Version="8.0.2" />
+        <PackageReference Include="UUIDNext" Version="3.0.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Reference Include="Microsoft.AspNetCore.Http.Features">
+            <HintPath>C:\Program Files\dotnet\shared\Microsoft.AspNetCore.App\8.0.10\Microsoft.AspNetCore.Http.Features.dll</HintPath>
+        </Reference>
+    </ItemGroup>
+
 </Project>

@@ -2,17 +2,17 @@
 
 namespace ProjectService.Infrastructure.Converters;
 
-public class UlidToBytesConverter : ValueConverter<Ulid, byte[]>
+public class UlidToGuidConverter : ValueConverter<Ulid, Guid>
 {
     private static readonly ConverterMappingHints DefaultHints = new(size: 16);
 
-    public UlidToBytesConverter() : this(null)
+    public UlidToGuidConverter() : this(null)
     {
     }
     
-    public UlidToBytesConverter(ConverterMappingHints? mappingHints)
+    public UlidToGuidConverter(ConverterMappingHints? mappingHints)
         : base(
-            convertToProviderExpression: x => x.ToByteArray(),
+            convertToProviderExpression: x => x.ToGuid(),
             convertFromProviderExpression: x => new Ulid(x),
             mappingHints: DefaultHints.With(mappingHints))
     {

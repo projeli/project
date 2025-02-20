@@ -20,4 +20,7 @@ public class ProjectMember
     public string Role { get; set; }
     
     public ProjectMemberPermissions Permissions { get; set; }
+    
+    
+    public Project Project { get; set; }
 }
