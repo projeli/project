@@ -1,4 +1,6 @@
-﻿namespace ProjectService.Application.Dtos;
+﻿using ProjectService.Domain.Models;
+
+namespace ProjectService.Application.Dtos;
 
 public class ProjectDto
 {
@@ -12,6 +14,8 @@ public class ProjectDto
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
     public DateTime? PublishedAt { get; set; }
+    public ProjectCategory Category { get; set; }
     public List<ProjectMemberDto> Members { get; set; } = [];
     public List<ProjectLinkDto> Links { get; set; } = [];
+    public List<ProjectTagDto> Tags { get; set; } = [];
 }

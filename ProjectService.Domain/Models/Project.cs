@@ -32,6 +32,10 @@ public class Project
     
     public DateTime? PublishedAt { get; set; }
     
+    public ProjectCategory Category { get; set; } 
+        
+    
     public List<ProjectMember> Members { get; set; } = [];
     public List<ProjectLink> Links { get; set; } = [];
+    public List<ProjectTag> Tags { get; set; } = [];
 }

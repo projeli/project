@@ -6,12 +6,13 @@ namespace ProjectService.Api.Extensions;
 
 public static class AuthExtension
 {
-    public static void AddProjectServiceAuthentication(this IServiceCollection services, IConfiguration configuration)
+    public static void AddProjectServiceAuthentication(this IServiceCollection services, IConfiguration configuration, IWebHostEnvironment environment)
     {
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(x =>
             {
                 x.Authority = configuration["Clerk:Authority"];
+                x.RequireHttpsMetadata = environment.IsProduction();
                 x.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateAudience = false,

@@ -1,4 +1,5 @@
 ﻿using System.Text.RegularExpressions;
+using System.Xml.Schema;
 using AutoMapper;
 using ProjectService.Application.Dtos;
 using ProjectService.Application.Services.Interfaces;
@@ -8,11 +9,16 @@ using ProjectService.Domain.Results;
 
 namespace ProjectService.Application.Services;
 
-public partial class ProjectService(IProjectRepository repository, IMapper mapper) : IProjectService
+public partial class ProjectService(
+    IProjectRepository repository,
+    IMapper mapper
+) : IProjectService
 {
-    public async Task<PagedResult<ProjectDto>> Get(string query, ProjectOrder order, int page, int pageSize, string? fromUserId = null, string? userId = null)
+    public async Task<PagedResult<ProjectDto>> Get(string query, ProjectOrder order, List<ProjectCategory>? categories,
+        string[]? tags, int page, int pageSize, string? fromUserId = null, string? userId = null)
     {
-        var projectsResult = await repository.Get(query, order, page, Math.Clamp(pageSize, 1, 100), fromUserId, userId);
+        var projectsResult = await repository.Get(query, order, categories, tags, page, Math.Clamp(pageSize, 1, 100),
+            fromUserId, userId);
         return new PagedResult<ProjectDto>
         {
             Data = mapper.Map<List<ProjectDto>>(projectsResult.Data),
@@ -59,6 +65,8 @@ public partial class ProjectService(IProjectRepository repository, IMapper mappe
         {
             projectDto.PublishedAt = DateTime.UtcNow;
         }
+
+        projectDto.Tags.ForEach(tag => tag.Id = Ulid.NewUlid());
 
         var validationResult = await ValidateProject(projectDto);
         if (validationResult.Failed) return validationResult;
@@ -140,6 +148,41 @@ public partial class ProjectService(IProjectRepository repository, IMapper mappe
             }
         }
 
+        if (!Enum.IsDefined(typeof(ProjectCategory), projectDto.Category))
+        {
+            errors.Add("category", ["Category is invalid"]);
+        }
+
+        if (projectDto.Tags.Count > 1)
+        {
+            var tagErrors = new List<string>();
+            foreach (var tag in projectDto.Tags)
+            {
+                if (tag.Name.Length < 2)
+                {
+                    tagErrors.Add($"Tag '{tag.Name}' must be at least 2 characters long");
+                    break;
+                }
+
+                if (tag.Name.Length > 24)
+                {
+                    tagErrors.Add($"Tag '{tag.Name}' must be at most 24 characters long");
+                    break;
+                }
+
+                if (!TagRegex().IsMatch(tag.Name))
+                {
+                    tagErrors.Add($"Tag '{tag.Name}' contains invalid characters");
+                    break;
+                }
+            }
+
+            if (tagErrors.Count > 0)
+            {
+                errors.Add("tags", tagErrors.ToArray());
+            }
+        }
+
         return errors.Count > 0
             ? Result<ProjectDto?>.ValidationFail(errors)
             : new Result<ProjectDto?>(null);
@@ -153,4 +196,7 @@ public partial class ProjectService(IProjectRepository repository, IMapper mappe
 
     [GeneratedRegex(@"^[\w\s\.,!?'""()&+\-*/\\:;@%<>=|{}\[\]^~]{32,128}$")]
     public static partial Regex SummaryRegex();
+
+    [GeneratedRegex(@"^[a-z-]{2,24}$")]
+    public static partial Regex TagRegex();
 }

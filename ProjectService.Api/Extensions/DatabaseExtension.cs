@@ -21,6 +21,11 @@ public static class DatabaseExtension
         services.AddDbContext<ProjectServiceDbContext>(options =>
         {
             options.UseNpgsql(connectionString, builder => { builder.MigrationsAssembly("ProjectService.Api"); });
+            
+            if (environment.IsDevelopment())
+            {
+                options.EnableSensitiveDataLogging();
+            }
         });
     }
 

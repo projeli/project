@@ -12,6 +12,7 @@ public class ProjectServiceDbContext(DbContextOptions<ProjectServiceDbContext> o
     public DbSet<Project> Projects { get; set; }
     public DbSet<ProjectMember> ProjectMembers { get; set; }
     public DbSet<ProjectLink> ProjectLinks { get; set; }
+    public DbSet<ProjectTag> ProjectTags { get; set; }
     
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -51,5 +52,9 @@ public class ProjectServiceDbContext(DbContextOptions<ProjectServiceDbContext> o
             .WithMany(x => x.Links)
             .HasForeignKey(x => x.ProjectId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<ProjectTag>()
+            .HasMany(x => x.Projects)
+            .WithMany(x => x.Tags);
     }
 }

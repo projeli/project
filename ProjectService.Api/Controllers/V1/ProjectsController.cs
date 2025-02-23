@@ -19,12 +19,14 @@ public class ProjectsController(IProjectService projectService, IMapper mapper) 
     public async Task<IActionResult> GetProjects(
         [FromQuery] string query = "",
         [FromQuery] ProjectOrder order = ProjectOrder.Relevance,
+        [FromQuery] List<ProjectCategory>? categories = null,
+        [FromQuery] string[]? tags = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         [FromQuery] string? userId = null
     )
     {
-        var projectsResult = await projectService.Get(query, order, page, pageSize, userId, User.TryGetId());
+        var projectsResult = await projectService.Get(query, order, categories, tags, page, pageSize, userId, User.TryGetId());
 
         return HandleResult(projectsResult);
     }
@@ -42,7 +44,7 @@ public class ProjectsController(IProjectService projectService, IMapper mapper) 
             result = await projectService.GetBySlug(id, User.TryGetId());
         }
 
-        return HandleResult(mapper.Map<Result<ProjectDto>>(result));
+        return HandleResult(result);
     }
 
     [HttpPost]

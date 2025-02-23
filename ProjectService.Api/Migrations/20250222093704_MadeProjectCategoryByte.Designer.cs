@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ProjectService.Infrastructure.Database;
@@ -11,9 +12,11 @@ using ProjectService.Infrastructure.Database;
 namespace ProjectService.Api.Migrations
 {
     [DbContext(typeof(ProjectServiceDbContext))]
-    partial class ProjectServiceDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250222093704_MadeProjectCategoryByte")]
+    partial class MadeProjectCategoryByte
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
