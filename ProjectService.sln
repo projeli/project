@@ -1,12 +1,12 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProjectService.Api", "ProjectService.Api\ProjectService.Api.csproj", "{FEBA8B2B-C9F7-4DD1-9B80-76DDE9C6FF6E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Projeli.ProjectService.Api", "Projeli.ProjectService.Api\Projeli.ProjectService.Api.csproj", "{FEBA8B2B-C9F7-4DD1-9B80-76DDE9C6FF6E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProjectService.Application", "ProjectService.Application\ProjectService.Application.csproj", "{4B276988-4225-40BA-AFB9-C4F0AB65267A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Projeli.ProjectService.Application", "Projeli.ProjectService.Application\Projeli.ProjectService.Application.csproj", "{4B276988-4225-40BA-AFB9-C4F0AB65267A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProjectService.Domain", "ProjectService.Domain\ProjectService.Domain.csproj", "{8799834F-081A-4473-95DA-DCFD2C4155FB}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Projeli.ProjectService.Domain", "Projeli.ProjectService.Domain\Projeli.ProjectService.Domain.csproj", "{8799834F-081A-4473-95DA-DCFD2C4155FB}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProjectService.Infrastructure", "ProjectService.Infrastructure\ProjectService.Infrastructure.csproj", "{86FB2D34-EF9A-4E92-BF1B-364EC912FB92}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Projeli.ProjectService.Infrastructure", "Projeli.ProjectService.Infrastructure\Projeli.ProjectService.Infrastructure.csproj", "{86FB2D34-EF9A-4E92-BF1B-364EC912FB92}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Projeli.Shared.Domain", "..\shared\Projeli.Shared.Domain\Projeli.Shared.Domain.csproj", "{469134C4-EB46-45E2-A6D0-17799909C529}"
 EndProject
