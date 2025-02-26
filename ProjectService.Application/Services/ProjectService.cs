@@ -1,11 +1,11 @@
 ﻿using System.Text.RegularExpressions;
-using System.Xml.Schema;
 using AutoMapper;
 using ProjectService.Application.Dtos;
 using ProjectService.Application.Services.Interfaces;
 using ProjectService.Domain.Models;
 using ProjectService.Domain.Repositories;
-using ProjectService.Domain.Results;
+using Projeli.Shared.Application.Exceptions.Http;
+using Projeli.Shared.Domain.Results;
 
 namespace ProjectService.Application.Services;
 
@@ -29,17 +29,17 @@ public partial class ProjectService(
         };
     }
 
-    public async Task<IResult<ProjectDto?>> GetById(Ulid id, string? userId = null)
+    public async Task<IResult<ProjectDto?>> GetById(Ulid id, string? userId = null, bool force = false)
     {
-        var project = await repository.GetById(id, userId);
+        var project = await repository.GetById(id, userId, force);
         return project is not null
             ? new Result<ProjectDto?>(mapper.Map<ProjectDto>(project))
             : Result<ProjectDto?>.NotFound();
     }
 
-    public async Task<IResult<ProjectDto?>> GetBySlug(string slug, string? userId = null)
+    public async Task<IResult<ProjectDto?>> GetBySlug(string slug, string? userId = null, bool force = false)
     {
-        var project = await repository.GetBySlug(slug, userId);
+        var project = await repository.GetBySlug(slug, userId, force);
         return project is not null
             ? new Result<ProjectDto?>(mapper.Map<ProjectDto>(project))
             : Result<ProjectDto?>.NotFound();
@@ -77,6 +77,38 @@ public partial class ProjectService(
         return createdProject is not null
             ? new Result<ProjectDto?>(mapper.Map<ProjectDto>(createdProject))
             : Result<ProjectDto?>.Fail("Failed to create project");
+    }
+
+    public async Task<IResult<ProjectDto?>> Update(Ulid id, ProjectDto projectDto, string userId)
+    {
+        var existingProject = await repository.GetById(id, userId);
+        if (existingProject is null) return Result<ProjectDto>.NotFound();
+
+        var member = existingProject.Members.FirstOrDefault(member => member.UserId == userId);
+        if (member is null || !member.IsOwner || !member.Permissions.HasFlag(ProjectMemberPermissions.EditProject))
+        {
+            throw new ForbiddenException("You do not have permission to edit this project");
+        }
+        
+        projectDto.Id = existingProject.Id;
+        projectDto.CreatedAt = existingProject.CreatedAt;
+        projectDto.UpdatedAt = DateTime.UtcNow;
+        projectDto.Tags.ForEach(tag => tag.Id = Ulid.NewUlid());
+        
+        if (projectDto.IsPublished && (!existingProject.IsPublished || existingProject.PublishedAt is null))
+        {
+            projectDto.PublishedAt = DateTime.UtcNow;
+        }
+
+        var validationResult = await ValidateProject(projectDto);
+        if (validationResult.Failed) return validationResult;
+
+        var project = mapper.Map<Project>(projectDto);
+        var updatedProject = await repository.Update(project);
+
+        return updatedProject is not null
+            ? new Result<ProjectDto>(mapper.Map<ProjectDto>(updatedProject))
+            : Result<ProjectDto>.Fail("Failed to update project");
     }
 
     private async Task<IResult<ProjectDto?>> ValidateProject(ProjectDto projectDto)

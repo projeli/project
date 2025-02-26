@@ -2,8 +2,8 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
-using ProjectService.Domain.Extensions;
-using ProjectService.Domain.Results;
+using Projeli.Shared.Domain.Extensions;
+using Projeli.Shared.Domain.Results;
 
 namespace ProjectService.Api.Middlewares;
 

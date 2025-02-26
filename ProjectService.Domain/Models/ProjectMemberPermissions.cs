@@ -14,12 +14,6 @@ public enum ProjectMemberPermissions : ulong
     EditProjectMemberPermissions = (ulong) 1 << 13,
     // Reserved (14 - 19) for future member-level permissions
     DeleteProjectMembers = (ulong) 1 << 20,
-
-    CreateWikiPages = (ulong) 1 << 21,
-    EditWikiPages = (ulong) 1 << 22,
-    PublishWikiPages = (ulong) 1 << 23,
-    // Reserved (23 - 29) for future wiki-level permissions
-    DeleteWikiPages = (ulong) 1 << 30,
     
     DeleteProject = (ulong) 1 << 63,
     All = ulong.MaxValue

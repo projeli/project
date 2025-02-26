@@ -11,6 +11,7 @@ builder.Services.AddProjectServiceRepositories();
 builder.Services.AddControllers().AddProjectServiceJson();
 builder.Services.AddProjectServiceDatabase(builder.Configuration, builder.Environment);
 builder.Services.AddProjectServiceAuthentication(builder.Configuration, builder.Environment);
+builder.Services.UseProjectServiceRabbitMq();
 builder.Services.AddAutoMapper(Assembly.GetAssembly(typeof(ProjectProfile)));
 
 var app = builder.Build();

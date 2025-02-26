@@ -1,5 +1,5 @@
 ﻿using System.Text.Json;
-using ProjectService.Infrastructure.Exceptions.Http;
+using Projeli.Shared.Application.Exceptions.Http;
 
 namespace ProjectService.Api.Middlewares;
 

@@ -17,6 +17,7 @@ public class ProjectProfile : Profile
 
         // Requests
         CreateMap<CreateProjectRequest, ProjectDto>();
+        CreateMap<UpdateProjectRequest, ProjectDto>();
 
         // Responses
     }

@@ -1,8 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
-using ProjectService.Api.Exceptions;
-using ProjectService.Infrastructure.Converters;
 using ProjectService.Infrastructure.Database;
+using Projeli.Shared.Infrastructure.Exceptions;
 
 namespace ProjectService.Api.Extensions;
 

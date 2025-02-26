@@ -1,12 +1,14 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using MassTransit;
+using Microsoft.EntityFrameworkCore;
 using ProjectService.Domain.Models;
 using ProjectService.Domain.Repositories;
-using ProjectService.Domain.Results;
 using ProjectService.Infrastructure.Database;
+using Projeli.Shared.Domain.Results;
+using Projeli.Shared.Infrastructure.Messaging.Events;
 
 namespace ProjectService.Infrastructure.Repositories;
 
-public class ProjectRepository(ProjectServiceDbContext database) : IProjectRepository
+public class ProjectRepository(ProjectServiceDbContext database, IBus bus) : IProjectRepository
 {
     public async Task<PagedResult<Project>> Get(string query, ProjectOrder order, List<ProjectCategory>? categories,
         string[]? tags, int page, int pageSize, string? fromUserId = null, string? userId = null)
@@ -33,9 +35,15 @@ public class ProjectRepository(ProjectServiceDbContext database) : IProjectRepos
 
         queryable = order switch
         {
-            ProjectOrder.Relevance => queryable.OrderByDescending(project => project.CreatedAt),
-            ProjectOrder.Published => queryable.OrderByDescending(project => project.PublishedAt),
-            ProjectOrder.Updated => queryable.OrderByDescending(project => project.UpdatedAt),
+            ProjectOrder.Relevance => queryable
+                .OrderByDescending(project => project.CreatedAt),
+            ProjectOrder.Published => queryable
+                .Where(project => project.PublishedAt != null)
+                .OrderByDescending(project => project.PublishedAt),
+            ProjectOrder.Updated => queryable
+                .OrderByDescending(project => project.UpdatedAt.HasValue)
+                .ThenByDescending(project => project.UpdatedAt)
+                .ThenByDescending(project => project.CreatedAt),
             _ => queryable
         };
 
@@ -43,7 +51,7 @@ public class ProjectRepository(ProjectServiceDbContext database) : IProjectRepos
         {
             queryable = queryable.Where(project => categories.Contains(project.Category));
         }
-        
+
         if (tags is not null && tags.Length != 0)
         {
             queryable = queryable.Where(project => project.Tags.Any(tag => tags.Contains(tag.Name)));
@@ -127,8 +135,87 @@ public class ProjectRepository(ProjectServiceDbContext database) : IProjectRepos
 
         // Add the project to the database
         var createdProject = await database.Projects.AddAsync(project);
-        await database.SaveChangesAsync();
+        var result = await database.SaveChangesAsync();
 
+        if (result > 0)
+        {
+            await bus.Publish(new ProjectCreatedEvent
+            {
+                ProjectId = createdProject.Entity.Id,
+                ProjectName = createdProject.Entity.Name,
+                ProjectSlug = createdProject.Entity.Slug,
+                Members = createdProject.Entity.Members.Select(m => new ProjectCreatedEvent.ProjectMember
+                {
+                    UserId = m.UserId,
+                    IsOwner = m.IsOwner,
+                }).ToList()
+            });
+        }
+        
         return createdProject.Entity;
+    }
+
+    public async Task<Project?> Update(Project project)
+    {
+        // Detach tags from the project initially to avoid tracking conflicts
+        var tags = project.Tags.ToList(); // Create a copy of the tags
+        project.Tags.Clear(); // Clear the original collection to avoid duplicates
+
+        // Add tags to database if they don't exist
+        foreach (var tag in tags)
+        {
+            var existingTag = await database.ProjectTags.FirstOrDefaultAsync(t => t.Name == tag.Name);
+            if (existingTag is not null)
+            {
+                // Use the existing tag instance from the database
+                project.Tags.Add(existingTag);
+            }
+            else
+            {
+                // Add new tag and attach it to the project
+                var createdTag = await database.ProjectTags.AddAsync(tag);
+                project.Tags.Add(createdTag.Entity);
+            }
+        }
+
+        // Update the project in the database
+        var existingProject = await database.Projects
+            .Include(p => p.Members)
+            .Include(p => p.Tags)
+            .Include(p => p.Links)
+            .FirstOrDefaultAsync(p => p.Id == project.Id);
+
+        if (existingProject is null) return null;
+
+        existingProject.Tags = project.Tags;
+
+        existingProject.Name = project.Name;
+        existingProject.Slug = project.Slug;
+        existingProject.Summary = project.Summary;
+        existingProject.Category = project.Category;
+        existingProject.Content = project.Content;
+        existingProject.ImageUrl = project.ImageUrl;
+        existingProject.IsPublished = project.IsPublished;
+        existingProject.PublishedAt ??= project.PublishedAt;
+        existingProject.UpdatedAt = project.UpdatedAt;
+
+        var result = await database.SaveChangesAsync();
+
+        if (result > 0)
+        {
+            await bus.Publish(new ProjectUpdatedEvent
+            {
+                ProjectId = existingProject.Id,
+                ProjectName = existingProject.Name,
+                ProjectSlug = existingProject.Slug,
+                Members = existingProject.Members.Select(m => new ProjectUpdatedEvent.ProjectMember
+                {
+                    UserId = m.UserId,
+                    IsOwner = m.IsOwner,
+                }).ToList()
+            });
+        }
+        
+        return existingProject;
     }
 }

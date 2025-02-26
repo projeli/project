@@ -5,8 +5,8 @@ using ProjectService.Application.Dtos;
 using ProjectService.Application.Models.Requests;
 using ProjectService.Application.Services.Interfaces;
 using ProjectService.Domain.Models;
-using ProjectService.Domain.Results;
-using ProjectService.Infrastructure.Extensions;
+using Projeli.Shared.Domain.Results;
+using Projeli.Shared.Infrastructure.Extensions;
 
 namespace ProjectService.Api.Controllers.V1;
 
@@ -58,5 +58,16 @@ public class ProjectsController(IProjectService projectService, IMapper mapper) 
         return createdProjectResult is { Success: true }
             ? CreatedAtAction(nameof(GetProject), new { id = createdProjectResult.Data!.Id }, createdProjectResult)
             : HandleResult(createdProjectResult);
+    }
+    
+    [HttpPut("{id}")]
+    [Authorize]
+    public async Task<IActionResult> UpdateProject([FromRoute] Ulid id, [FromBody] UpdateProjectRequest request)
+    {
+        var projectDto = mapper.Map<ProjectDto>(request);
+
+        var updatedProjectResult = await projectService.Update(id, projectDto, User.GetId());
+
+        return HandleResult(updatedProjectResult);
     }
 }

@@ -1,9 +1,8 @@
 ﻿using System.ComponentModel;
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
 using ProjectService.Domain.Models;
-using ProjectService.Infrastructure.Converters;
+using Projeli.Shared.Infrastructure.Converters;
 
 namespace ProjectService.Infrastructure.Database;
 

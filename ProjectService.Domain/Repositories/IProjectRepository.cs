@@ -1,5 +1,5 @@
 ﻿using ProjectService.Domain.Models;
-using ProjectService.Domain.Results;
+using Projeli.Shared.Domain.Results;
 
 namespace ProjectService.Domain.Repositories;
 
@@ -9,4 +9,5 @@ public interface IProjectRepository
     Task<Project?> GetById(Ulid id, string? userId = null, bool force = false);
     Task<Project?> GetBySlug(string slug, string? userId = null, bool force = false);
     Task<Project?> Create(Project project);
+    Task<Project?> Update(Project project);
 }

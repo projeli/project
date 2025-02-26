@@ -1,5 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using ProjectService.Domain.Results;
+using Projeli.Shared.Domain.Results;
 
 namespace ProjectService.Api.Controllers;
 
