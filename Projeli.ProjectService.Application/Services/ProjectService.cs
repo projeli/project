@@ -61,17 +61,12 @@ public partial class ProjectService(
                 Permissions = ProjectMemberPermissions.All
             }
         ];
-        if (projectDto.IsPublished)
-        {
-            projectDto.PublishedAt = DateTime.UtcNow;
-        }
-
-        projectDto.Tags.ForEach(tag => tag.Id = Ulid.NewUlid());
-
-        var validationResult = await ValidateProject(projectDto);
-        if (validationResult.Failed) return validationResult;
 
         var project = mapper.Map<Project>(projectDto);
+
+        var validationResult = await ValidateProject(project);
+        if (validationResult.Failed) return validationResult;
+
         var createdProject = await repository.Create(project);
 
         return createdProject is not null
@@ -79,116 +74,164 @@ public partial class ProjectService(
             : Result<ProjectDto?>.Fail("Failed to create project");
     }
 
-    public async Task<IResult<ProjectDto?>> Update(Ulid id, ProjectDto projectDto, string userId)
+    public async Task<IResult<ProjectDto?>> UpdateDetails(Ulid id, ProjectDto projectDto, string userId)
     {
         var existingProject = await repository.GetById(id, userId);
         if (existingProject is null) return Result<ProjectDto>.NotFound();
 
         var member = existingProject.Members.FirstOrDefault(member => member.UserId == userId);
-        if (member is null || !member.IsOwner || !member.Permissions.HasFlag(ProjectMemberPermissions.EditProject))
+        if (member is null || (!member.IsOwner && !member.Permissions.HasFlag(ProjectMemberPermissions.EditProject)))
         {
             throw new ForbiddenException("You do not have permission to edit this project");
         }
-        
-        projectDto.Id = existingProject.Id;
-        projectDto.CreatedAt = existingProject.CreatedAt;
-        projectDto.UpdatedAt = DateTime.UtcNow;
-        projectDto.Tags.ForEach(tag => tag.Id = Ulid.NewUlid());
-        
-        if (projectDto.IsPublished && (!existingProject.IsPublished || existingProject.PublishedAt is null))
-        {
-            projectDto.PublishedAt = DateTime.UtcNow;
-        }
 
-        var validationResult = await ValidateProject(projectDto);
+
+        existingProject.Name = projectDto.Name;
+        existingProject.Slug = projectDto.Slug;
+        existingProject.Summary = projectDto.Summary;
+        existingProject.Category = projectDto.Category;
+
+        // Makes sure people aren't going to spam the updated at field to get their project to the top of the list
+        existingProject.UpdatedAt = existingProject.UpdatedAt > DateTime.UtcNow.AddDays(-1)
+            ? existingProject.UpdatedAt
+            : DateTime.UtcNow;
+
+        var validationResult = await ValidateProject(existingProject);
         if (validationResult.Failed) return validationResult;
 
-        var project = mapper.Map<Project>(projectDto);
-        var updatedProject = await repository.Update(project);
+        var updatedProject = await repository.Update(existingProject);
 
         return updatedProject is not null
             ? new Result<ProjectDto>(mapper.Map<ProjectDto>(updatedProject))
             : Result<ProjectDto>.Fail("Failed to update project");
     }
 
-    private async Task<IResult<ProjectDto?>> ValidateProject(ProjectDto projectDto)
+    public async Task<IResult<ProjectDto?>> UpdateContent(Ulid id, string content, string userId)
+    {
+        var existingProject = await repository.GetById(id, userId);
+        if (existingProject is null) return Result<ProjectDto>.NotFound();
+
+        var member = existingProject.Members.FirstOrDefault(member => member.UserId == userId);
+        if (member is null || (!member.IsOwner && !member.Permissions.HasFlag(ProjectMemberPermissions.EditProject)))
+        {
+            throw new ForbiddenException("You do not have permission to edit this project");
+        }
+
+        existingProject.Content = content;
+
+        // Makes sure people aren't going to spam the updated at field to get their project to the top of the list
+        existingProject.UpdatedAt = existingProject.UpdatedAt > DateTime.UtcNow.AddDays(-1)
+            ? existingProject.UpdatedAt
+            : DateTime.UtcNow;
+
+        var updatedProject = await repository.Update(existingProject);
+
+        return updatedProject is not null
+            ? new Result<ProjectDto>(mapper.Map<ProjectDto>(updatedProject))
+            : Result<ProjectDto>.Fail("Failed to update project");
+    }
+
+    public async Task<IResult<ProjectDto?>> UpdateTags(Ulid id, string[] tags, string userId)
+    {
+        var existingProject = await repository.GetById(id, userId);
+        if (existingProject is null) return Result<ProjectDto>.NotFound();
+
+        var member = existingProject.Members.FirstOrDefault(member => member.UserId == userId);
+        if (member is null || (!member.IsOwner && !member.Permissions.HasFlag(ProjectMemberPermissions.EditProject)))
+        {
+            throw new ForbiddenException("You do not have permission to edit this project");
+        }
+
+        existingProject.Tags = tags.Select(tag => new ProjectTag { Name = tag, Id = Ulid.NewUlid() }).ToList();
+
+        var validationResult = await ValidateProject(existingProject);
+        if (validationResult.Failed) return validationResult;
+
+        var updatedProject = await repository.Update(existingProject);
+
+        return updatedProject is not null
+            ? new Result<ProjectDto>(mapper.Map<ProjectDto>(updatedProject))
+            : Result<ProjectDto>.Fail("Failed to update project");
+    }
+
+    private async Task<IResult<ProjectDto?>> ValidateProject(Project project)
     {
         var errors = new Dictionary<string, string[]>();
 
-        if (string.IsNullOrWhiteSpace(projectDto.Name))
+        if (string.IsNullOrWhiteSpace(project.Name))
         {
             errors.Add("name", ["Name is required"]);
         }
         else
         {
-            if (projectDto.Name.Length < 3)
+            if (project.Name.Length < 3)
             {
                 errors.Add("name", ["Name must be at least 3 characters long"]);
             }
-            else if (projectDto.Name.Length > 32)
+            else if (project.Name.Length > 32)
             {
                 errors.Add("name", ["Name must be at most 32 characters long"]);
             }
-            else if (!NameRegex().IsMatch(projectDto.Name))
+            else if (!NameRegex().IsMatch(project.Name))
             {
                 errors.Add("name", ["Name contains invalid characters"]);
             }
         }
 
-        if (string.IsNullOrWhiteSpace(projectDto.Slug))
+        if (string.IsNullOrWhiteSpace(project.Slug))
         {
             errors.Add("slug", ["Slug is required"]);
         }
         else
         {
-            if (projectDto.Slug.Length < 3)
+            if (project.Slug.Length < 3)
             {
                 errors.Add("slug", ["Slug must be at least 3 characters long"]);
             }
-            else if (projectDto.Slug.Length > 32)
+            else if (project.Slug.Length > 32)
             {
                 errors.Add("slug", ["Slug must be at most 32 characters long"]);
             }
-            else if (!SlugRegex().IsMatch(projectDto.Slug))
+            else if (!SlugRegex().IsMatch(project.Slug))
             {
                 errors.Add("slug", ["Slug may only contain lowercase letters, numbers, and hyphens"]);
             }
             else
             {
-                var existingProject = await repository.GetBySlug(projectDto.Slug, force: true);
+                var existingProject = await repository.GetBySlug(project.Slug, force: true);
 
-                if (existingProject is not null && existingProject.Id != projectDto.Id)
+                if (existingProject is not null && existingProject.Id != project.Id)
                 {
                     errors.Add("slug", ["A project with this slug already exists"]);
                 }
             }
         }
 
-        if (!string.IsNullOrWhiteSpace(projectDto.Summary))
+        if (!string.IsNullOrWhiteSpace(project.Summary))
         {
-            if (projectDto.Summary.Length < 32)
+            if (project.Summary.Length < 32)
             {
                 errors.Add("summary", ["Summary must be at least 32 characters long"]);
             }
-            else if (projectDto.Summary.Length > 128)
+            else if (project.Summary.Length > 128)
             {
                 errors.Add("summary", ["Summary must be at most 128 characters long"]);
             }
-            else if (!SummaryRegex().IsMatch(projectDto.Summary))
+            else if (!SummaryRegex().IsMatch(project.Summary))
             {
                 errors.Add("summary", ["Summary contains invalid characters"]);
             }
         }
 
-        if (!Enum.IsDefined(typeof(ProjectCategory), projectDto.Category))
+        if (!Enum.IsDefined(typeof(ProjectCategory), project.Category))
         {
             errors.Add("category", ["Category is invalid"]);
         }
 
-        if (projectDto.Tags.Count > 1)
+        if (project.Tags.Count > 1)
         {
             var tagErrors = new List<string>();
-            foreach (var tag in projectDto.Tags)
+            foreach (var tag in project.Tags)
             {
                 if (tag.Name.Length < 2)
                 {

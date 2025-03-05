@@ -6,11 +6,10 @@ using Projeli.Shared.Infrastructure.Messaging.Events;
 
 namespace Projeli.ProjectService.Infrastructure.Messaging.Consumers;
 
-public class ProjectSyncRequestConsumer : IConsumer<ProjectSyncRequestEvent>
+public class ProjectSyncRequestConsumer(IProjectService projectService, IBus bus) : IConsumer<ProjectSyncRequestEvent>
 {
     public async Task Consume(ConsumeContext<ProjectSyncRequestEvent> context)
     {
-        var projectService = context.GetServiceOrCreateInstance<IProjectService>();
         IResult<ProjectDto?> existingProject;
 
         if (context.Message.ProjectId.HasValue && context.Message.ProjectId.Value != default)
@@ -28,8 +27,6 @@ public class ProjectSyncRequestConsumer : IConsumer<ProjectSyncRequestEvent>
 
         if (existingProject.Data is not null)
         {
-            var bus = context.GetServiceOrCreateInstance<IBus>();
-
             await bus.Publish(new ProjectSyncEvent
             {
                 ProjectId = existingProject.Data.Id,

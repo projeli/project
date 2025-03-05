@@ -24,7 +24,7 @@ public class Project
     [StringLength(128)]
     public string? ImageUrl { get; set; }
     
-    public bool IsPublished { get; set; }
+    public ProjectStatus Status { get; set; }
     
     public DateTime CreatedAt { get; set; }
     

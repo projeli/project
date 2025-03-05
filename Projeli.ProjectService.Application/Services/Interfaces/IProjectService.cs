@@ -10,5 +10,7 @@ public interface IProjectService
     Task<IResult<ProjectDto?>> GetById(Ulid id, string? userId = null, bool force = false);
     Task<IResult<ProjectDto?>> GetBySlug(string slug, string? userId = null, bool force = false);
     Task<IResult<ProjectDto?>> Create(ProjectDto projectDto, string userId);
-    Task<IResult<ProjectDto?>> Update(Ulid id, ProjectDto projectDto, string userId);
+    Task<IResult<ProjectDto?>> UpdateDetails(Ulid id, ProjectDto projectDto, string userId);
+    Task<IResult<ProjectDto?>> UpdateContent(Ulid id, string content, string userId);
+    Task<IResult<ProjectDto?>> UpdateTags(Ulid id, string[] tags, string userId);
 }

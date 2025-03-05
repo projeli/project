@@ -60,13 +60,31 @@ public class ProjectsController(IProjectService projectService, IMapper mapper) 
             : HandleResult(createdProjectResult);
     }
     
-    [HttpPut("{id}")]
+    [HttpPut("{id}/details")]
     [Authorize]
-    public async Task<IActionResult> UpdateProject([FromRoute] Ulid id, [FromBody] UpdateProjectRequest request)
+    public async Task<IActionResult> UpdateProject([FromRoute] Ulid id, [FromBody] UpdateProjectDetailsRequest request)
     {
         var projectDto = mapper.Map<ProjectDto>(request);
 
-        var updatedProjectResult = await projectService.Update(id, projectDto, User.GetId());
+        var updatedProjectResult = await projectService.UpdateDetails(id, projectDto, User.GetId());
+
+        return HandleResult(updatedProjectResult);
+    }
+    
+    [HttpPut("{id}/content")]
+    [Authorize]
+    public async Task<IActionResult> UpdateProjectContent([FromRoute] Ulid id, [FromBody] UpdateProjectContentRequest request)
+    {
+        var updatedProjectResult = await projectService.UpdateContent(id, request.Content, User.GetId());
+
+        return HandleResult(updatedProjectResult);
+    }
+    
+    [HttpPut("{id}/tags")]
+    [Authorize]
+    public async Task<IActionResult> UpdateProjectTags([FromRoute] Ulid id, [FromBody] UpdateProjectTagsRequest request)
+    {
+        var updatedProjectResult = await projectService.UpdateTags(id, request.Tags, User.GetId());
 
         return HandleResult(updatedProjectResult);
     }

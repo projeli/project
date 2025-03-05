@@ -17,7 +17,7 @@ public class ProjectRepository(ProjectServiceDbContext database, IBus bus) : IPr
             .AsNoTracking()
             .Include(project => project.Members)
             .Include(project => project.Tags)
-            .Where(project => project.IsPublished || project.Members.Any(member => member.UserId == userId))
+            .Where(project => project.Status == ProjectStatus.Published || project.Members.Any(member => member.UserId == userId))
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(query))
@@ -65,7 +65,7 @@ public class ProjectRepository(ProjectServiceDbContext database, IBus bus) : IPr
                 Slug = p.Slug,
                 Summary = p.Summary,
                 ImageUrl = p.ImageUrl,
-                IsPublished = p.IsPublished,
+                Status = p.Status,
                 Category = p.Category,
                 Tags = p.Tags,
             })
@@ -95,7 +95,7 @@ public class ProjectRepository(ProjectServiceDbContext database, IBus bus) : IPr
             .Include(project => project.Links)
             .Where(project => project.Id == id)
             .FirstOrDefaultAsync(project =>
-                force || project.IsPublished || project.Members.Any(member => member.UserId == userId));
+                force || project.Status == ProjectStatus.Published || project.Members.Any(member => member.UserId == userId));
     }
 
     public async Task<Project?> GetBySlug(string slug, string? userId = null, bool force = false)
@@ -107,33 +107,11 @@ public class ProjectRepository(ProjectServiceDbContext database, IBus bus) : IPr
             .Include(project => project.Links)
             .Where(project => project.Slug == slug)
             .FirstOrDefaultAsync(project =>
-                force || project.IsPublished || project.Members.Any(member => member.UserId == userId));
+                force || project.Status == ProjectStatus.Published || project.Members.Any(member => member.UserId == userId));
     }
 
     public async Task<Project?> Create(Project project)
     {
-        // Detach tags from the project initially to avoid tracking conflicts
-        var tags = project.Tags.ToList(); // Create a copy of the tags
-        project.Tags.Clear(); // Clear the original collection to avoid duplicates
-
-        // Add tags to database if they don't exist, and reattach them to the project
-        foreach (var tag in tags)
-        {
-            var existingTag = await database.ProjectTags.FirstOrDefaultAsync(t => t.Name == tag.Name);
-            if (existingTag is not null)
-            {
-                // Use the existing tag instance from the database
-                project.Tags.Add(existingTag);
-            }
-            else
-            {
-                // Add new tag and attach it to the project
-                var createdTag = await database.ProjectTags.AddAsync(tag);
-                project.Tags.Add(createdTag.Entity);
-            }
-        }
-
-        // Add the project to the database
         var createdProject = await database.Projects.AddAsync(project);
         var result = await database.SaveChangesAsync();
 
@@ -194,9 +172,6 @@ public class ProjectRepository(ProjectServiceDbContext database, IBus bus) : IPr
         existingProject.Summary = project.Summary;
         existingProject.Category = project.Category;
         existingProject.Content = project.Content;
-        existingProject.ImageUrl = project.ImageUrl;
-        existingProject.IsPublished = project.IsPublished;
-        existingProject.PublishedAt ??= project.PublishedAt;
         existingProject.UpdatedAt = project.UpdatedAt;
 
         var result = await database.SaveChangesAsync();

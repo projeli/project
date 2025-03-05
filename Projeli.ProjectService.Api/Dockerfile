@@ -7,10 +7,14 @@ EXPOSE 8081
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-COPY ["Projeli.ProjectService.Api/Projeli.ProjectService.Api.csproj", "Projeli.ProjectService.Api/"]
-RUN dotnet restore "Projeli.ProjectService.Api/Projeli.ProjectService.Api.csproj"
-COPY . .
-WORKDIR "/src/Projeli.ProjectService.Api"
+COPY ["project/Projeli.ProjectService.Api/Projeli.ProjectService.Api.csproj", "project/Projeli.ProjectService.Api/"]
+COPY ["shared/Projeli.Shared.Domain/Projeli.Shared.Domain.csproj", "shared/Projeli.Shared.Domain/"]
+COPY ["shared/Projeli.Shared.Application/Projeli.Shared.Application.csproj", "shared/Projeli.Shared.Application/"]
+COPY ["shared/Projeli.Shared.Infrastructure/Projeli.Shared.Infrastructure.csproj", "shared/Projeli.Shared.Infrastructure/"]
+RUN dotnet restore "project/Projeli.ProjectService.Api/Projeli.ProjectService.Api.csproj"
+COPY ["project", "project"]
+COPY ["shared", "shared"]
+WORKDIR "/src/project/Projeli.ProjectService.Api"
 RUN dotnet build "Projeli.ProjectService.Api.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 FROM build AS publish
