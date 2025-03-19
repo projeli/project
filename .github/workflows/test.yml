@@ -48,7 +48,7 @@ jobs:
       if: always()
       with:
         name: Unit Test Report
-        path: "**/test-results.trx"
+        path: "../TestResults/**/test-results.trx"
         reporter: dotnet-trx
         fail-on-error: true
         working-directory: project
