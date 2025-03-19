@@ -41,7 +41,7 @@ jobs:
       run: dotnet build project/ProjectService.sln --no-restore  # Adjust path
 
     - name: Test
-      run: dotnet test project/ProjectService.sln --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./TestResults --settings runsettings.xml --logger "trx;LogFileName=test-results.trx"
+      run: dotnet test project/ProjectService.sln --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./TestResults --settings project/runsettings.xml --logger "trx;LogFileName=test-results.trx"
 
     - name: Unit Test Report
       uses: dorny/test-reporter@v1
