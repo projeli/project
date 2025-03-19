@@ -344,6 +344,7 @@ public class ProjectServiceTests
             Id = id,
             Name = "Test",
             Slug = "test",
+            Category = ProjectCategory.Adventure,
             Members = [new ProjectMember { UserId = "user123", IsOwner = true }]
         };
         _repositoryMock.Setup(r => r.GetById(id, "user123", false)).ReturnsAsync(existingProject);
@@ -351,12 +352,12 @@ public class ProjectServiceTests
         _mapper.Map<ProjectDto>(existingProject);
 
         // Act
-        var result = await _service.UpdateTags(id, ["tag1"], "user123");
+        var result = await _service.UpdateTags(id, ["tag"], "user123");
 
         // Assert
         Assert.True(result.Success);
         Assert.Single(result.Data!.Tags);
-        Assert.Equal("tag1", result.Data.Tags[0].Name);
+        Assert.Equal("tag", result.Data.Tags[0].Name);
     }
     
     [Theory]
