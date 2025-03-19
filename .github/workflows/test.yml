@@ -18,6 +18,13 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+      with:
+        path: project
+
+    - uses: actions/checkout@v3
+      with:
+        repository: projeli/shared
+        path: shared
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v3
