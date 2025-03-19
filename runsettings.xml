@@ -5,8 +5,7 @@
             <DataCollector friendlyName="XPlat code coverage">
                 <Configuration>
                     <Format>cobertura</Format>
-                    <Include>[Projeli.ProjectService.Domain]*</Include>
-                    <Include>[Projeli.ProjectService.Application]*</Include>
+                    <Include>[Projeli.ProjectService.Domain]*,[Projeli.ProjectService.Application]*</Include>
                 </Configuration>
             </DataCollector>
         </DataCollectors>
