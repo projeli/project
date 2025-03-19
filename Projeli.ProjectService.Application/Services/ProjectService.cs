@@ -223,12 +223,16 @@ public partial class ProjectService(
             }
         }
 
-        if (!Enum.IsDefined(typeof(ProjectCategory), project.Category))
+        if (!Enum.IsDefined(typeof(ProjectCategory), project.Category) || project.Category == ProjectCategory.None)
         {
             errors.Add("category", ["Category is invalid"]);
         }
 
-        if (project.Tags.Count > 1)
+        if (project.Tags.Count > 5)
+        {
+            errors.Add("tags", ["A project may have at most 5 tags"]);
+        }
+        else if (project.Tags.Count > 0)
         {
             var tagErrors = new List<string>();
             foreach (var tag in project.Tags)
@@ -236,19 +240,18 @@ public partial class ProjectService(
                 if (tag.Name.Length < 2)
                 {
                     tagErrors.Add($"Tag '{tag.Name}' must be at least 2 characters long");
-                    break;
+                    continue;
                 }
 
                 if (tag.Name.Length > 24)
                 {
                     tagErrors.Add($"Tag '{tag.Name}' must be at most 24 characters long");
-                    break;
+                    continue;
                 }
 
                 if (!TagRegex().IsMatch(tag.Name))
                 {
                     tagErrors.Add($"Tag '{tag.Name}' contains invalid characters");
-                    break;
                 }
             }
 

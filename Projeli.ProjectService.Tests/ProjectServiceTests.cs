@@ -65,6 +65,23 @@ public class ProjectServiceTests
     }
 
     [Fact]
+    public async Task GetBySlug_ReturnsProject_WhenExists()
+    {
+        // Arrange
+        var slug = "test";
+        var project = new Project { Slug = slug, Name = "Test" };
+        _repositoryMock.Setup(r => r.GetBySlug(slug, null, false)).ReturnsAsync(project);
+        _mapper.Map<ProjectDto>(project);
+
+        // Act
+        var result = await _service.GetBySlug(slug);
+
+        // Assert
+        Assert.True(result.Success);
+        Assert.Equal(slug, result.Data!.Slug);
+    }
+
+    [Fact]
     public async Task Create_ReturnsProject_WhenValid()
     {
         // Arrange
@@ -123,6 +140,178 @@ public class ProjectServiceTests
     }
 
     [Fact]
+    public async Task UpdateDetails_ReturnsError_WhenNoName()
+    {
+        // Arrange
+        var id = Ulid.NewUlid();
+        var existingProject = new Project
+        {
+            Id = id,
+            Members = [new ProjectMember { UserId = "user123", IsOwner = true }]
+        };
+        _repositoryMock.Setup(r => r.GetById(id, "user123", false)).ReturnsAsync(existingProject);
+
+        // Act
+        var result = await _service.UpdateDetails(id, new ProjectDto
+        {
+            Slug = "new",
+            Category = ProjectCategory.Adventure
+        }, "user123");
+
+        // Assert
+        Assert.False(result.Success);
+        Assert.Contains("name", result.Errors.Keys);
+    }
+
+    [Fact]
+    public async Task UpdateDetails_ReturnsError_WhenNoSlug()
+    {
+        // Arrange
+        var id = Ulid.NewUlid();
+        var existingProject = new Project
+        {
+            Id = id,
+            Members = [new ProjectMember { UserId = "user123", IsOwner = true }]
+        };
+        _repositoryMock.Setup(r => r.GetById(id, "user123", false)).ReturnsAsync(existingProject);
+
+        // Act
+        var result = await _service.UpdateDetails(id, new ProjectDto
+        {
+            Name = "New",
+            Category = ProjectCategory.Adventure
+        }, "user123");
+
+        // Assert
+        Assert.False(result.Success);
+        Assert.Contains("slug", result.Errors.Keys);
+    }
+
+    [Theory]
+    [InlineData("a")]
+    [InlineData("ab")]
+    [InlineData(" ")]
+    [InlineData("   ")]
+    [InlineData("#Invalid")]
+    [InlineData("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")]
+    public async Task UpdateDetails_ReturnsError_WhenInvalidName(string invalidName)
+    {
+        // Arrange
+        var id = Ulid.NewUlid();
+        var existingProject = new Project
+        {
+            Id = id,
+            Members = [new ProjectMember { UserId = "user123", IsOwner = true }]
+        };
+        _repositoryMock.Setup(r => r.GetById(id, "user123", false)).ReturnsAsync(existingProject);
+
+        // Act
+        var result = await _service.UpdateDetails(id, new ProjectDto
+        {
+            Name = invalidName,
+            Category = ProjectCategory.Adventure
+        }, "user123");
+
+        // Assert
+        Assert.False(result.Success);
+        Assert.Contains("name", result.Errors.Keys);
+    }
+
+    [Theory]
+    [InlineData("a")]
+    [InlineData("ab")]
+    [InlineData("ABC")]
+    [InlineData(" ")]
+    [InlineData("   ")]
+    [InlineData("#Invalid")]
+    [InlineData("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")]
+    [InlineData("test")]
+    public async Task UpdateDetails_ReturnsError_WhenInvalidSlug(string invalidSlug)
+    {
+        // Arrange
+        var id = Ulid.NewUlid();
+        var existingProject = new Project
+        {
+            Id = id,
+            Members = [new ProjectMember { UserId = "user123", IsOwner = true }]
+        };
+        _repositoryMock.Setup(r => r.GetById(id, "user123", false)).ReturnsAsync(existingProject);
+        _repositoryMock.Setup(r => r.GetBySlug("test", null, true))
+            .ReturnsAsync(new Project { Name = "Test", Slug = "test" });
+
+        // Act
+        var result = await _service.UpdateDetails(id, new ProjectDto
+        {
+            Name = "New",
+            Slug = invalidSlug,
+            Category = ProjectCategory.Adventure
+        }, "user123");
+
+        // Assert
+        Assert.False(result.Success);
+        Assert.Contains("slug", result.Errors.Keys);
+    }
+    
+    [Theory]
+    [InlineData("a")]
+    [InlineData("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")]
+    [InlineData("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")]
+    [InlineData("This is an invalid character test#")]
+    public async Task UpdateDetails_ReturnsError_WhenInvalidSummary(string invalidSummary)
+    {
+        // Arrange
+        var id = Ulid.NewUlid();
+        var existingProject = new Project
+        {
+            Id = id,
+            Members = [new ProjectMember { UserId = "user123", IsOwner = true }]
+        };
+        _repositoryMock.Setup(r => r.GetById(id, "user123", false)).ReturnsAsync(existingProject);
+
+        // Act
+        var result = await _service.UpdateDetails(id, new ProjectDto
+        {
+            Name = "New",
+            Slug = "new",
+            Summary = invalidSummary,
+            Category = ProjectCategory.Adventure
+        }, "user123");
+
+        // Assert
+        Assert.False(result.Success);
+        Assert.Contains("summary", result.Errors.Keys);
+    }
+    
+    [Theory]
+    [InlineData(0)]
+    [InlineData(38)]
+    [InlineData(255)]
+    public async Task UpdateDetails_ReturnsError_WhenInvalidCategory(int invalidCategory)
+    {
+        // Arrange
+        var id = Ulid.NewUlid();
+        var existingProject = new Project
+        {
+            Id = id,
+            Members = [new ProjectMember { UserId = "user123", IsOwner = true }]
+        };
+        _repositoryMock.Setup(r => r.GetById(id, "user123", false)).ReturnsAsync(existingProject);
+
+        // Act
+        var result = await _service.UpdateDetails(id, new ProjectDto
+        {
+            Name = "New",
+            Slug = "new",
+            Summary = "This is a valid summary for the project.",
+            Category = (ProjectCategory) invalidCategory
+        }, "user123");
+
+        // Assert
+        Assert.False(result.Success);
+        Assert.Contains("category", result.Errors.Keys);
+    }
+
+    [Fact]
     public async Task UpdateContent_ReturnsUpdatedProject_WhenAuthorized()
     {
         // Arrange
@@ -168,5 +357,29 @@ public class ProjectServiceTests
         Assert.True(result.Success);
         Assert.Single(result.Data!.Tags);
         Assert.Equal("tag1", result.Data.Tags[0].Name);
+    }
+    
+    [Theory]
+    [InlineData("a")]
+    [InlineData("AB")]
+    [InlineData("aaaaaaaaaaaaaaaaaaaaaaaaa")]
+    [InlineData("aaaaaaaa", "bbbbbbbb", "cccccccc", "dddddddd", "eeeeeeee", "ffffffff")]
+    public async Task UpdateTags_ReturnsError_WhenInvalidTag(params string[] invalidTag)
+    {
+        // Arrange
+        var id = Ulid.NewUlid();
+        var existingProject = new Project
+        {
+            Id = id,
+            Members = [new ProjectMember { UserId = "user123", IsOwner = true }]
+        };
+        _repositoryMock.Setup(r => r.GetById(id, "user123", false)).ReturnsAsync(existingProject);
+
+        // Act
+        var result = await _service.UpdateTags(id, invalidTag, "user123");
+
+        // Assert
+        Assert.False(result.Success);
+        Assert.Contains("tags", result.Errors.Keys);
     }
 }
