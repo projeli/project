@@ -101,6 +101,6 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: wiki/Projeli.ProjectService.Api/Dockerfile
+          file: project/Projeli.ProjectService.Api/Dockerfile
           push: true
-          tags: daqem/projeli:wiki
+          tags: daqem/projeli:project
