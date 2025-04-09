@@ -193,4 +193,35 @@ public class ProjectRepository(ProjectServiceDbContext database, IBus bus) : IPr
         
         return existingProject;
     }
+
+    public async Task<Project?> UpdateStatus(Ulid id, ProjectStatus status)
+    {
+        var existingProject = await database.Projects.FirstOrDefaultAsync(p => p.Id == id);
+        if (existingProject is null) return null;
+        
+        existingProject.Status = status;
+        existingProject.PublishedAt ??= DateTime.UtcNow;
+        await database.SaveChangesAsync();
+
+        return existingProject;
+    }
+
+    public async Task<bool> Delete(Ulid id)
+    {
+        var existingProject = await database.Projects.FirstOrDefaultAsync(p => p.Id == id);
+        if (existingProject is null) return false;
+        
+        database.Projects.Remove(existingProject);
+        var result = await database.SaveChangesAsync();
+        
+        if (result > 0)
+        {
+            await bus.Publish(new ProjectDeletedEvent
+            {
+                ProjectId = existingProject.Id,
+            });
+        }
+        
+        return result > 0;
+    }
 }

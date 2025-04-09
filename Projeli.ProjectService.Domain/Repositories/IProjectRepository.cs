@@ -10,4 +10,6 @@ public interface IProjectRepository
     Task<Project?> GetBySlug(string slug, string? userId = null, bool force = false);
     Task<Project?> Create(Project project);
     Task<Project?> Update(Project project);
+    Task<Project?> UpdateStatus(Ulid id, ProjectStatus status);
+    Task<bool> Delete(Ulid id);
 }

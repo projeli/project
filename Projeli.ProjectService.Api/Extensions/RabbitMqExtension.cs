@@ -30,6 +30,7 @@ public static class RabbitMqExtension
                 config.PublishFanOut<ProjectCreatedEvent>();
                 config.PublishFanOut<ProjectSyncEvent>();
                 config.PublishFanOut<ProjectUpdatedEvent>();
+                config.PublishFanOut<ProjectDeletedEvent>();
             });
 
             x.AddConsumers(Assembly.GetAssembly(typeof(ProjectSyncRequestConsumer)));

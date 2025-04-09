@@ -154,6 +154,53 @@ public partial class ProjectService(
             : Result<ProjectDto>.Fail("Failed to update project");
     }
 
+    public async Task<IResult<ProjectDto?>> UpdateStatus(Ulid id, ProjectStatus status, string userId)
+    {
+        var existingProject = await repository.GetById(id, userId);
+        if (existingProject is null) return Result<ProjectDto>.NotFound();
+        
+        var member = existingProject.Members.FirstOrDefault(member => member.UserId == userId);
+        if (member is null || (!member.IsOwner && !member.Permissions.HasFlag(ProjectMemberPermissions.EditProject)))
+        {
+            throw new ForbiddenException("You do not have permission to edit this project");
+        }
+        
+        switch (status)
+        {
+            case ProjectStatus.Draft:
+                return Result<ProjectDto>.Fail("Cannot set status to draft");
+            case ProjectStatus.Review:
+                return Result<ProjectDto>.Fail("Cannot set status to review"); //TODO: Add review logic
+            case ProjectStatus.Published when existingProject.Status != ProjectStatus.Draft && existingProject.Status != ProjectStatus.Archived:
+                return Result<ProjectDto>.Fail("Cannot set status to published");
+            case ProjectStatus.Archived when existingProject.Status != ProjectStatus.Published:
+                return Result<ProjectDto>.Fail("Cannot set status to archived");
+        }
+        
+        var updatedProject = await repository.UpdateStatus(id, status);
+        
+        return updatedProject is not null
+            ? new Result<ProjectDto>(mapper.Map<ProjectDto>(updatedProject))
+            : Result<ProjectDto>.Fail("Failed to update project");
+    }
+
+    public async Task<IResult<ProjectDto?>> Delete(Ulid id, string userId)
+    {
+        var existingProject = await repository.GetById(id, userId);
+        if (existingProject is null) return Result<ProjectDto>.NotFound();
+
+        var member = existingProject.Members.FirstOrDefault(member => member.UserId == userId);
+        if (member is null || (!member.IsOwner && !member.Permissions.HasFlag(ProjectMemberPermissions.DeleteProject)))
+        {
+            throw new ForbiddenException("You do not have permission to delete this project");
+        }
+
+        var success = await repository.Delete(id);
+        return success
+            ? new Result<ProjectDto?>(mapper.Map<ProjectDto>(existingProject))
+            : Result<ProjectDto?>.Fail("Failed to delete project");
+    }
+
     private async Task<IResult<ProjectDto?>> ValidateProject(Project project)
     {
         var errors = new Dictionary<string, string[]>();

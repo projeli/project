@@ -13,4 +13,6 @@ public interface IProjectService
     Task<IResult<ProjectDto?>> UpdateDetails(Ulid id, ProjectDto projectDto, string userId);
     Task<IResult<ProjectDto?>> UpdateContent(Ulid id, string content, string userId);
     Task<IResult<ProjectDto?>> UpdateTags(Ulid id, string[] tags, string userId);
+    Task<IResult<ProjectDto?>> UpdateStatus(Ulid id, ProjectStatus status, string userId);
+    Task<IResult<ProjectDto?>> Delete(Ulid id, string userId);
 }

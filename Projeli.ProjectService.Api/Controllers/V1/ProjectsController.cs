@@ -88,4 +88,22 @@ public class ProjectsController(IProjectService projectService, IMapper mapper) 
 
         return HandleResult(updatedProjectResult);
     }
+    
+    [HttpPut("{id}/status")]
+    [Authorize]
+    public async Task<IActionResult> UpdateProjectStatus([FromRoute] Ulid id, [FromBody] UpdateProjectStatusRequest request)
+    {
+        var updatedProjectResult = await projectService.UpdateStatus(id, request.Status, User.GetId());
+
+        return HandleResult(updatedProjectResult);
+    }
+    
+    [HttpDelete("{id}")]
+    [Authorize]
+    public async Task<IActionResult> DeleteProject([FromRoute] Ulid id)
+    {
+        var deletedProjectResult = await projectService.Delete(id, User.GetId());
+
+        return HandleResult(deletedProjectResult);
+    }
 }
