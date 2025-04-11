@@ -13,10 +13,11 @@ builder.Services.AddProjectServiceDatabase(builder.Configuration, builder.Enviro
 builder.Services.AddProjectServiceAuthentication(builder.Configuration, builder.Environment);
 builder.Services.UseProjectServiceRabbitMq(builder.Configuration);
 builder.Services.AddAutoMapper(Assembly.GetAssembly(typeof(ProjectProfile)));
+builder.Services.AddProjectServiceOpenTelemetry(builder.Logging, builder.Configuration);
 
 var app = builder.Build();
 
-app.UseAtlaMiddleware();
+app.UseProjectServiceMiddleware();
 app.MapControllers();
 app.UseHttpsRedirection();
 
@@ -28,5 +29,6 @@ if (app.Environment.IsDevelopment())
 app.UseProjectServiceCors();
 app.UseProjectServiceAuthentication();
 app.UseProjectServiceDatabase();
+app.UseProjectServiceOpenTelemetry();
 
 app.Run();

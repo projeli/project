@@ -4,7 +4,7 @@ namespace Projeli.ProjectService.Api.Extensions;
 
 public static class MiddlewareExtension
 {
-    public static void UseAtlaMiddleware(this IApplicationBuilder builder)
+    public static void UseProjectServiceMiddleware(this IApplicationBuilder builder)
     {
         builder.UseMiddleware<DatabaseExceptionMiddleware>();
         builder.UseMiddleware<HttpExceptionMiddleware>();
