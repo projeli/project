@@ -206,6 +206,27 @@ public class ProjectRepository(ProjectServiceDbContext database, IBus bus) : IPr
         return existingProject;
     }
 
+    public async Task<Project?> UpdateOwnership(Ulid id, Ulid fromMemberId, Ulid toMemberId)
+    {
+        var existingProject = await database.Projects
+            .Include(p => p.Members)
+            .FirstOrDefaultAsync(p => p.Id == id);
+        if (existingProject is null) return null;
+
+        var fromMember = existingProject.Members.FirstOrDefault(m => m.Id == fromMemberId);
+        if (fromMember is null) return null;
+
+        var toMember = existingProject.Members.FirstOrDefault(m => m.Id == toMemberId);
+        if (toMember is null) return null;
+
+        fromMember.IsOwner = false;
+        toMember.IsOwner = true;
+
+        await database.SaveChangesAsync();
+
+        return existingProject;
+    }
+
     public async Task<bool> Delete(Ulid id)
     {
         var existingProject = await database.Projects.FirstOrDefaultAsync(p => p.Id == id);

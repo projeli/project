@@ -11,5 +11,6 @@ public interface IProjectRepository
     Task<Project?> Create(Project project);
     Task<Project?> Update(Project project);
     Task<Project?> UpdateStatus(Ulid id, ProjectStatus status);
+    Task<Project?> UpdateOwnership(Ulid id, Ulid fromMemberId, Ulid toMemberId);
     Task<bool> Delete(Ulid id);
 }

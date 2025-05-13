@@ -184,6 +184,30 @@ public partial class ProjectService(
             : Result<ProjectDto>.Fail("Failed to update project");
     }
 
+    public async Task<IResult<ProjectDto?>> UpdateOwnership(Ulid id, string newOwnerUserId, string userId)
+    {
+        var existingProject = await repository.GetById(id, userId);
+        if (existingProject is null) return Result<ProjectDto>.NotFound();
+
+        var owner = existingProject.Members.FirstOrDefault(member => member.UserId == userId);
+        if (owner is null || !owner.IsOwner)
+        {
+            throw new ForbiddenException("You do not have permission to transfer ownership of this project");
+        }
+
+        var newOwner = existingProject.Members.FirstOrDefault(x => x.UserId == newOwnerUserId);
+        if (newOwner is null)
+        {
+            return Result<ProjectDto>.Fail("New owner does not exist in the project");
+        }
+
+        var updatedProject = await repository.UpdateOwnership(id, owner.Id, newOwner.Id);
+
+        return updatedProject is not null
+            ? new Result<ProjectDto>(mapper.Map<ProjectDto>(updatedProject))
+            : Result<ProjectDto>.Fail("Failed to update project");
+    }
+
     public async Task<IResult<ProjectDto?>> Delete(Ulid id, string userId)
     {
         var existingProject = await repository.GetById(id, userId);

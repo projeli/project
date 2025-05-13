@@ -98,6 +98,15 @@ public class ProjectsController(IProjectService projectService, IMapper mapper) 
         return HandleResult(updatedProjectResult);
     }
     
+    [HttpPut("{id}/ownership")]
+    [Authorize]
+    public async Task<IActionResult> UpdateProjectOwnership([FromRoute] Ulid id, [FromBody] UpdateProjectOwnershipRequest request)
+    {
+        var updatedProjectResult = await projectService.UpdateOwnership(id, request.UserId, User.GetId());
+
+        return HandleResult(updatedProjectResult);
+    }
+    
     [HttpDelete("{id}")]
     [Authorize]
     public async Task<IActionResult> DeleteProject([FromRoute] Ulid id)
