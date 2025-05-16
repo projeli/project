@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Microsoft.AspNetCore.Http;
 using Moq;
 using Projeli.ProjectService.Application.Dtos;
 using Projeli.ProjectService.Domain.Models;
@@ -85,13 +86,18 @@ public class ProjectServiceTests
     public async Task Create_ReturnsProject_WhenValid()
     {
         // Arrange
+        var imageFile = new FormFile(new MemoryStream(), 0, 0, "file", "test.png")
+        {
+            Headers = new HeaderDictionary(),
+            ContentType = "image/png"
+        };
         var projectDto = new ProjectDto
             { Name = "New Project", Slug = "new-project", Category = ProjectCategory.Technology };
         var project = _mapper.Map<Project>(projectDto);
         _repositoryMock.Setup(r => r.Create(It.IsAny<Project>())).ReturnsAsync(project);
 
         // Act
-        var result = await _service.Create(projectDto, "user123");
+        var result = await _service.Create(projectDto, imageFile, "user123");
 
         // Assert
         Assert.True(result.Success);

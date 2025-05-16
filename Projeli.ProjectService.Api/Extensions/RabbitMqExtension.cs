@@ -12,6 +12,10 @@ public static class RabbitMqExtension
     {
         services.AddMassTransit(x =>
         {
+            x.AddConsumer<ProjectSyncRequestConsumer>();
+            x.AddConsumer<FileStoreFailedConsumer>();
+            x.AddConsumer<FileStoredConsumer>();
+            
             x.UsingRabbitMq((context, config) =>
             {
                 config.Host(configuration["RabbitMq:Host"] ?? throw new MissingEnvironmentVariableException("RabbitMq:Host"), "/", h =>
@@ -19,28 +23,30 @@ public static class RabbitMqExtension
                     h.Username(configuration["RabbitMq:Username"] ?? throw new MissingEnvironmentVariableException("RabbitMq:Username"));
                     h.Password(configuration["RabbitMq:Password"] ?? throw new MissingEnvironmentVariableException("RabbitMq:Password"));
                 });
-
-                config.ConfigureEndpoints(context);
                 
                 config.ReceiveEndpoint("project-project-sync-request-queue", e =>
                 {
                     e.ConfigureConsumer<ProjectSyncRequestConsumer>(context);
                 });
                 
+                config.ReceiveEndpoint("project-file-store-failed-queue", e =>
+                {
+                    e.ConfigureConsumer<FileStoreFailedConsumer>(context);
+                });
+                
+                config.ReceiveEndpoint("project-file-stored-queue", e =>
+                {
+                    e.ConfigureConsumer<FileStoredConsumer>(context);
+                });
+                
                 config.PublishFanOut<ProjectCreatedEvent>();
                 config.PublishFanOut<ProjectSyncEvent>();
                 config.PublishFanOut<ProjectUpdatedEvent>();
                 config.PublishFanOut<ProjectDeletedEvent>();
+                config.PublishFanOut<FileStoreEvent>();
+                config.PublishFanOut<FileDeleteEvent>();
             });
-
-            x.AddConsumers(Assembly.GetAssembly(typeof(ProjectSyncRequestConsumer)));
         });
-    }
-
-    private static void ReceiveEndpoint<T>(this IRabbitMqBusFactoryConfigurator configurator, string queueName)
-        where T : class, IConsumer, new()
-    {
-        configurator.ReceiveEndpoint("project-" + queueName, e => { e.Consumer<T>(); });
     }
 
     private static void PublishFanOut<T>(this IRabbitMqBusFactoryConfigurator configurator)

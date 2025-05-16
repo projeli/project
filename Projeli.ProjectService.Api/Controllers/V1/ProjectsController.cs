@@ -26,11 +26,12 @@ public class ProjectsController(IProjectService projectService, IMapper mapper) 
         [FromQuery] string? userId = null
     )
     {
-        var projectsResult = await projectService.Get(query, order, categories, tags, page, pageSize, userId, User.TryGetId());
+        var projectsResult =
+            await projectService.Get(query, order, categories, tags, page, pageSize, userId, User.TryGetId());
 
         return HandleResult(projectsResult);
     }
-    
+
     [HttpGet("{id}")]
     public async Task<IActionResult> GetProject([FromRoute] string id)
     {
@@ -49,17 +50,17 @@ public class ProjectsController(IProjectService projectService, IMapper mapper) 
 
     [HttpPost]
     [Authorize]
-    public async Task<IActionResult> CreateProject([FromBody] CreateProjectRequest request)
+    public async Task<IActionResult> CreateProject([FromForm] CreateProjectRequest request)
     {
         var projectDto = mapper.Map<ProjectDto>(request);
 
-        var createdProjectResult = await projectService.Create(projectDto, User.GetId());
+        var createdProjectResult = await projectService.Create(projectDto, request.Image, User.GetId());
 
-        return createdProjectResult is { Success: true }
-            ? CreatedAtAction(nameof(GetProject), new { id = createdProjectResult.Data!.Id }, createdProjectResult)
+        return createdProjectResult.Success
+            ? CreatedAtAction(nameof(GetProject), new { id = createdProjectResult.Data?.Id }, createdProjectResult)
             : HandleResult(createdProjectResult);
     }
-    
+
     [HttpPut("{id}/details")]
     [Authorize]
     public async Task<IActionResult> UpdateProject([FromRoute] Ulid id, [FromBody] UpdateProjectDetailsRequest request)
@@ -70,16 +71,17 @@ public class ProjectsController(IProjectService projectService, IMapper mapper) 
 
         return HandleResult(updatedProjectResult);
     }
-    
+
     [HttpPut("{id}/content")]
     [Authorize]
-    public async Task<IActionResult> UpdateProjectContent([FromRoute] Ulid id, [FromBody] UpdateProjectContentRequest request)
+    public async Task<IActionResult> UpdateProjectContent([FromRoute] Ulid id,
+        [FromBody] UpdateProjectContentRequest request)
     {
         var updatedProjectResult = await projectService.UpdateContent(id, request.Content, User.GetId());
 
         return HandleResult(updatedProjectResult);
     }
-    
+
     [HttpPut("{id}/tags")]
     [Authorize]
     public async Task<IActionResult> UpdateProjectTags([FromRoute] Ulid id, [FromBody] UpdateProjectTagsRequest request)
@@ -88,25 +90,36 @@ public class ProjectsController(IProjectService projectService, IMapper mapper) 
 
         return HandleResult(updatedProjectResult);
     }
-    
+
     [HttpPut("{id}/status")]
     [Authorize]
-    public async Task<IActionResult> UpdateProjectStatus([FromRoute] Ulid id, [FromBody] UpdateProjectStatusRequest request)
+    public async Task<IActionResult> UpdateProjectStatus([FromRoute] Ulid id,
+        [FromBody] UpdateProjectStatusRequest request)
     {
         var updatedProjectResult = await projectService.UpdateStatus(id, request.Status, User.GetId());
 
         return HandleResult(updatedProjectResult);
     }
-    
+
     [HttpPut("{id}/ownership")]
     [Authorize]
-    public async Task<IActionResult> UpdateProjectOwnership([FromRoute] Ulid id, [FromBody] UpdateProjectOwnershipRequest request)
+    public async Task<IActionResult> UpdateProjectOwnership([FromRoute] Ulid id,
+        [FromBody] UpdateProjectOwnershipRequest request)
     {
         var updatedProjectResult = await projectService.UpdateOwnership(id, request.UserId, User.GetId());
 
         return HandleResult(updatedProjectResult);
     }
-    
+
+    [HttpPut("{id}/image")]
+    [Authorize]
+    public async Task<IActionResult> UpdateProjectImage([FromRoute] Ulid id, [FromForm] IFormFile image)
+    {
+        var updatedProjectResult = await projectService.UpdateImage(id, image, User.GetId());
+
+        return HandleResult(updatedProjectResult);
+    }
+
     [HttpDelete("{id}")]
     [Authorize]
     public async Task<IActionResult> DeleteProject([FromRoute] Ulid id)

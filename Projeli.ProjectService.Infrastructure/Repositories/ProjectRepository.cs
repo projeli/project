@@ -1,8 +1,10 @@
 ﻿using MassTransit;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Projeli.ProjectService.Domain.Models;
 using Projeli.ProjectService.Domain.Repositories;
 using Projeli.ProjectService.Infrastructure.Database;
+using Projeli.Shared.Domain.Models.Files;
 using Projeli.Shared.Domain.Results;
 using Projeli.Shared.Infrastructure.Messaging.Events;
 
@@ -172,6 +174,7 @@ public class ProjectRepository(ProjectServiceDbContext database, IBus bus) : IPr
         existingProject.Summary = project.Summary;
         existingProject.Category = project.Category;
         existingProject.Content = project.Content;
+        existingProject.ImageUrl = project.ImageUrl;
         existingProject.UpdatedAt = project.UpdatedAt;
 
         var result = await database.SaveChangesAsync();
@@ -227,7 +230,32 @@ public class ProjectRepository(ProjectServiceDbContext database, IBus bus) : IPr
         return existingProject;
     }
 
-    public async Task<bool> Delete(Ulid id)
+    public async Task<Project?> UpdateImageUrl(Ulid projectId, string filePath)
+    {
+        var existingProject = await database.Projects.FirstOrDefaultAsync(p => p.Id == projectId);
+        if (existingProject is null) return null;
+
+        existingProject.ImageUrl = filePath;
+        await database.SaveChangesAsync();
+
+        return existingProject;
+    }
+
+    public async Task UpdateImage(Ulid id, IFormFile image, string userId)
+    {
+        await bus.Publish(new FileStoreEvent
+        {
+            FileName = Ulid.NewUlid().ToString(),
+            FileExtension = image.FileName.Split('.').Last(),
+            MimeType = image.ContentType,
+            FileType = FileTypes.ProjectLogo,
+            ParentId = id.ToString(),
+            FileData = await ConvertToByteArrayAsync(image),
+            UserId = userId
+        });
+    }
+
+    public async Task<bool> Delete(Ulid id, string userId)
     {
         var existingProject = await database.Projects.FirstOrDefaultAsync(p => p.Id == id);
         if (existingProject is null) return false;
@@ -241,8 +269,28 @@ public class ProjectRepository(ProjectServiceDbContext database, IBus bus) : IPr
             {
                 ProjectId = existingProject.Id,
             });
+            if (existingProject.ImageUrl is not null)
+            {
+                await bus.Publish(new FileDeleteEvent
+                {
+                    FilePath = existingProject.ImageUrl,
+                    FileType = FileTypes.ProjectLogo,
+                    ParentId = existingProject.Id.ToString(),
+                    UserId = userId
+                });
+            }
         }
         
         return result > 0;
+    }
+    
+    private static async Task<byte[]> ConvertToByteArrayAsync(IFormFile formFile)
+    {
+        if (formFile.Length == 0)
+            return [];
+
+        using var memoryStream = new MemoryStream();
+        await formFile.CopyToAsync(memoryStream);
+        return memoryStream.ToArray();
     }
 }

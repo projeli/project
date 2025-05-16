@@ -1,5 +1,7 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.Text.Json;
+using System.Text.RegularExpressions;
 using AutoMapper;
+using Microsoft.AspNetCore.Http;
 using Projeli.ProjectService.Domain.Models;
 using Projeli.ProjectService.Domain.Repositories;
 using Projeli.ProjectService.Application.Dtos;
@@ -45,7 +47,7 @@ public partial class ProjectService(
             : Result<ProjectDto?>.NotFound();
     }
 
-    public async Task<IResult<ProjectDto?>> Create(ProjectDto projectDto, string userId)
+    public async Task<IResult<ProjectDto?>> Create(ProjectDto projectDto, IFormFile image, string userId)
     {
         projectDto.Id = Ulid.NewUlid();
         projectDto.CreatedAt = DateTime.UtcNow;
@@ -68,6 +70,11 @@ public partial class ProjectService(
         if (validationResult.Failed) return validationResult;
 
         var createdProject = await repository.Create(project);
+
+        if (createdProject is not null)
+        {
+            await repository.UpdateImage(createdProject.Id, image, userId);
+        }
 
         return createdProject is not null
             ? new Result<ProjectDto?>(mapper.Map<ProjectDto>(createdProject))
@@ -208,6 +215,50 @@ public partial class ProjectService(
             : Result<ProjectDto>.Fail("Failed to update project");
     }
 
+    public async Task<IResult<ProjectDto?>> UpdateImageUrl(Ulid projectId, string filePath, string userId)
+    {
+        var existingProject = await repository.GetById(projectId, userId);
+        if (existingProject is null) return Result<ProjectDto>.NotFound();
+        
+        var updatedProject = await repository.UpdateImageUrl(existingProject.Id, filePath);
+
+        return updatedProject is not null
+            ? new Result<ProjectDto>(mapper.Map<ProjectDto>(updatedProject))
+            : Result<ProjectDto>.Fail("Failed to update project");
+    }
+
+    public async Task<IResult<ProjectDto?>> UpdateImage(Ulid id, IFormFile image, string userId)
+    {
+        var existingProject = await repository.GetById(id, userId);
+        if (existingProject is null) return Result<ProjectDto>.NotFound();
+
+        var member = existingProject.Members.FirstOrDefault(member => member.UserId == userId);
+        if (member is null || (!member.IsOwner && !member.Permissions.HasFlag(ProjectMemberPermissions.EditProject)))
+        {
+            throw new ForbiddenException("You do not have permission to edit this project");
+        }
+
+        if (image.Length < 1 * 1024)
+        {
+            return Result<ProjectDto>.Fail("Image must be at least 1KB");
+        }
+        
+        if (image.Length > 2 * 1024 * 1024)
+        {
+            return Result<ProjectDto>.Fail("Image must be at most 2MB");
+        }
+        
+        var imageTypes = new[] { "image/jpeg", "image/png", "image/gif", "image/webp" };
+        if (!imageTypes.Contains(image.ContentType))
+        {
+            return Result<ProjectDto>.Fail("Image must be a JPEG, PNG, GIF or WEBP");
+        }
+        
+        await repository.UpdateImage(id, image, userId);
+        
+        return new Result<ProjectDto?>(mapper.Map<ProjectDto>(existingProject));
+    }
+
     public async Task<IResult<ProjectDto?>> Delete(Ulid id, string userId)
     {
         var existingProject = await repository.GetById(id, userId);
@@ -219,7 +270,7 @@ public partial class ProjectService(
             throw new ForbiddenException("You do not have permission to delete this project");
         }
 
-        var success = await repository.Delete(id);
+        var success = await repository.Delete(id, userId);
         return success
             ? new Result<ProjectDto?>(mapper.Map<ProjectDto>(existingProject))
             : Result<ProjectDto?>.Fail("Failed to delete project");

@@ -1,6 +1,7 @@
 ﻿using System.Reflection;
 using System.Security.Claims;
 using AutoMapper;
+using MassTransit;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
@@ -93,10 +94,15 @@ public class ProjectsControllerTests
     public async Task CreateProject_ReturnsCreatedResult_WhenSuccessful()
     {
         // Arrange
-        var request = new CreateProjectRequest { Name = "New Project", Slug = "new-project", Summary = null, Category = ProjectCategory.Adventure };
+        var imageFile = new FormFile(new MemoryStream(), 0, 0, "file", "test.png")
+        {
+            Headers = new HeaderDictionary(),
+            ContentType = "image/png"
+        };
+        var request = new CreateProjectRequest { Name = "New Project", Slug = "new-project", Summary = null, Category = ProjectCategory.Adventure, Image = imageFile};
         var projectDto = _mapper.Map<ProjectDto>(request);
         var result = new Result<ProjectDto?>(projectDto);
-        _projectServiceMock.Setup(s => s.Create(It.IsAny<ProjectDto>(), "user123")).ReturnsAsync(result);
+        _projectServiceMock.Setup(s => s.Create(It.IsAny<ProjectDto>(), It.IsAny<IFormFile>(), "user123")).ReturnsAsync(result);
         _controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext
@@ -109,7 +115,7 @@ public class ProjectsControllerTests
         
         // Act
         var actionResult = await _controller.CreateProject(request);
-
+        
         // Assert
         var createdResult = Assert.IsType<CreatedAtActionResult>(actionResult);
         var returnValue = Assert.IsType<Result<ProjectDto?>>(createdResult.Value);
