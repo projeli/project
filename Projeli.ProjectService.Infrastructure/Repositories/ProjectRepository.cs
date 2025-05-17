@@ -19,7 +19,8 @@ public class ProjectRepository(ProjectServiceDbContext database, IBus bus) : IPr
             .AsNoTracking()
             .Include(project => project.Members)
             .Include(project => project.Tags)
-            .Where(project => project.Status == ProjectStatus.Published || project.Members.Any(member => member.UserId == userId))
+            .Where(project => project.Status == ProjectStatus.Published ||
+                              project.Members.Any(member => member.UserId == userId))
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(query))
@@ -97,7 +98,8 @@ public class ProjectRepository(ProjectServiceDbContext database, IBus bus) : IPr
             .Include(project => project.Links)
             .Where(project => project.Id == id)
             .FirstOrDefaultAsync(project =>
-                force || project.Status == ProjectStatus.Published || project.Members.Any(member => member.UserId == userId));
+                force || project.Status == ProjectStatus.Published ||
+                project.Members.Any(member => member.UserId == userId));
     }
 
     public async Task<Project?> GetBySlug(string slug, string? userId = null, bool force = false)
@@ -109,7 +111,8 @@ public class ProjectRepository(ProjectServiceDbContext database, IBus bus) : IPr
             .Include(project => project.Links)
             .Where(project => project.Slug == slug)
             .FirstOrDefaultAsync(project =>
-                force || project.Status == ProjectStatus.Published || project.Members.Any(member => member.UserId == userId));
+                force || project.Status == ProjectStatus.Published ||
+                project.Members.Any(member => member.UserId == userId));
     }
 
     public async Task<Project?> Create(Project project)
@@ -131,7 +134,7 @@ public class ProjectRepository(ProjectServiceDbContext database, IBus bus) : IPr
                 }).ToList()
             });
         }
-        
+
         return createdProject.Entity;
     }
 
@@ -193,7 +196,7 @@ public class ProjectRepository(ProjectServiceDbContext database, IBus bus) : IPr
                 }).ToList()
             });
         }
-        
+
         return existingProject;
     }
 
@@ -201,7 +204,7 @@ public class ProjectRepository(ProjectServiceDbContext database, IBus bus) : IPr
     {
         var existingProject = await database.Projects.FirstOrDefaultAsync(p => p.Id == id);
         if (existingProject is null) return null;
-        
+
         existingProject.Status = status;
         existingProject.PublishedAt ??= DateTime.UtcNow;
         await database.SaveChangesAsync();
@@ -209,7 +212,8 @@ public class ProjectRepository(ProjectServiceDbContext database, IBus bus) : IPr
         return existingProject;
     }
 
-    public async Task<Project?> UpdateOwnership(Ulid id, Ulid fromMemberId, Ulid toMemberId)
+    public async Task<Project?> UpdateOwnership(Ulid id, Ulid fromMemberId, Ulid toMemberId,
+        ProjectMemberPermissions fromPermissions, ProjectMemberPermissions toPermissions)
     {
         var existingProject = await database.Projects
             .Include(p => p.Members)
@@ -223,7 +227,9 @@ public class ProjectRepository(ProjectServiceDbContext database, IBus bus) : IPr
         if (toMember is null) return null;
 
         fromMember.IsOwner = false;
+        fromMember.Permissions = fromPermissions;
         toMember.IsOwner = true;
+        toMember.Permissions = toPermissions;
 
         await database.SaveChangesAsync();
 
@@ -259,10 +265,10 @@ public class ProjectRepository(ProjectServiceDbContext database, IBus bus) : IPr
     {
         var existingProject = await database.Projects.FirstOrDefaultAsync(p => p.Id == id);
         if (existingProject is null) return false;
-        
+
         database.Projects.Remove(existingProject);
         var result = await database.SaveChangesAsync();
-        
+
         if (result > 0)
         {
             await bus.Publish(new ProjectDeletedEvent
@@ -280,10 +286,10 @@ public class ProjectRepository(ProjectServiceDbContext database, IBus bus) : IPr
                 });
             }
         }
-        
+
         return result > 0;
     }
-    
+
     private static async Task<byte[]> ConvertToByteArrayAsync(IFormFile formFile)
     {
         if (formFile.Length == 0)

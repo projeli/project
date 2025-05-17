@@ -165,27 +165,28 @@ public partial class ProjectService(
     {
         var existingProject = await repository.GetById(id, userId);
         if (existingProject is null) return Result<ProjectDto>.NotFound();
-        
+
         var member = existingProject.Members.FirstOrDefault(member => member.UserId == userId);
         if (member is null || (!member.IsOwner && !member.Permissions.HasFlag(ProjectMemberPermissions.EditProject)))
         {
             throw new ForbiddenException("You do not have permission to edit this project");
         }
-        
+
         switch (status)
         {
             case ProjectStatus.Draft:
                 return Result<ProjectDto>.Fail("Cannot set status to draft");
             case ProjectStatus.Review:
                 return Result<ProjectDto>.Fail("Cannot set status to review"); //TODO: Add review logic
-            case ProjectStatus.Published when existingProject.Status != ProjectStatus.Draft && existingProject.Status != ProjectStatus.Archived:
+            case ProjectStatus.Published when existingProject.Status != ProjectStatus.Draft &&
+                                              existingProject.Status != ProjectStatus.Archived:
                 return Result<ProjectDto>.Fail("Cannot set status to published");
             case ProjectStatus.Archived when existingProject.Status != ProjectStatus.Published:
                 return Result<ProjectDto>.Fail("Cannot set status to archived");
         }
-        
+
         var updatedProject = await repository.UpdateStatus(id, status);
-        
+
         return updatedProject is not null
             ? new Result<ProjectDto>(mapper.Map<ProjectDto>(updatedProject))
             : Result<ProjectDto>.Fail("Failed to update project");
@@ -208,7 +209,14 @@ public partial class ProjectService(
             return Result<ProjectDto>.Fail("New owner does not exist in the project");
         }
 
-        var updatedProject = await repository.UpdateOwnership(id, owner.Id, newOwner.Id);
+        var oldOwnerPermissions = Enum.GetValues(typeof(ProjectMemberPermissions))
+            .Cast<ProjectMemberPermissions>()
+            .Where(p => p != ProjectMemberPermissions.All)
+            .Aggregate(ProjectMemberPermissions.None, (current, permission) => current | permission);
+
+        var updatedProject =
+            await repository.UpdateOwnership(id, owner.Id, newOwner.Id, oldOwnerPermissions,
+                ProjectMemberPermissions.All);
 
         return updatedProject is not null
             ? new Result<ProjectDto>(mapper.Map<ProjectDto>(updatedProject))
@@ -219,7 +227,7 @@ public partial class ProjectService(
     {
         var existingProject = await repository.GetById(projectId, userId);
         if (existingProject is null) return Result<ProjectDto>.NotFound();
-        
+
         var updatedProject = await repository.UpdateImageUrl(existingProject.Id, filePath);
 
         return updatedProject is not null
@@ -242,20 +250,20 @@ public partial class ProjectService(
         {
             return Result<ProjectDto>.Fail("Image must be at least 1KB");
         }
-        
+
         if (image.Length > 2 * 1024 * 1024)
         {
             return Result<ProjectDto>.Fail("Image must be at most 2MB");
         }
-        
+
         var imageTypes = new[] { "image/jpeg", "image/png", "image/gif", "image/webp" };
         if (!imageTypes.Contains(image.ContentType))
         {
             return Result<ProjectDto>.Fail("Image must be a JPEG, PNG, GIF or WEBP");
         }
-        
+
         await repository.UpdateImage(id, image, userId);
-        
+
         return new Result<ProjectDto?>(mapper.Map<ProjectDto>(existingProject));
     }
 
