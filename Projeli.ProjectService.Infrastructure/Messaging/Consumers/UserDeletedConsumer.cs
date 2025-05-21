@@ -1,12 +1,12 @@
 ﻿using MassTransit;
 using Projeli.ProjectService.Application.Services.Interfaces;
-using Projeli.Shared.Infrastructure.Messaging.Events;
+using Projeli.Shared.Application.Messages.Users;
 
 namespace Projeli.ProjectService.Infrastructure.Messaging.Consumers;
 
-public class UserDeletedConsumer(IProjectService projectService, IProjectMemberService projectMemberService) : IConsumer<UserDeletedEvent>
+public class UserDeletedConsumer(IProjectService projectService, IProjectMemberService projectMemberService) : IConsumer<UserDeletedMessage>
 {
-    public async Task Consume(ConsumeContext<UserDeletedEvent> context)
+    public async Task Consume(ConsumeContext<UserDeletedMessage> context)
     {
         var projectsResult = await projectService.GetByUserId(context.Message.UserId);
 

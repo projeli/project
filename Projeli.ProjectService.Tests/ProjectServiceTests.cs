@@ -18,9 +18,10 @@ public class ProjectServiceTests
     public ProjectServiceTests()
     {
         _repositoryMock = new Mock<IProjectRepository>();
+        Mock<IBusRepository> busRepositoryMock = new();
         _mapper =
             new MapperConfiguration(cfg => cfg.AddMaps(typeof(Application.Profiles.ProjectProfile))).CreateMapper();
-        _service = new Application.Services.ProjectService(_repositoryMock.Object, _mapper);
+        _service = new Application.Services.ProjectService(_repositoryMock.Object, busRepositoryMock.Object, _mapper);
     }
 
     [Fact]
@@ -682,7 +683,7 @@ public class ProjectServiceTests
             Members = [new ProjectMember { UserId = "user123", IsOwner = true }]
         };
         _repositoryMock.Setup(r => r.GetById(id, "user123", false)).ReturnsAsync(existingProject);
-        _repositoryMock.Setup(r => r.Delete(id, "user123")).ReturnsAsync(true);
+        _repositoryMock.Setup(r => r.Delete(id)).ReturnsAsync(true);
         _mapper.Map<ProjectDto>(existingProject);
 
         // Act

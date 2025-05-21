@@ -15,15 +15,15 @@ public class ProjectMemberServiceTests
 {
     private readonly Mock<IProjectRepository> _projectRepositoryMock;
     private readonly Mock<IProjectMemberRepository> _projectMemberRepositoryMock;
-    private readonly IMapper _mapper;
     private readonly ProjectMemberService _service;
 
     public ProjectMemberServiceTests()
     {
         _projectRepositoryMock = new Mock<IProjectRepository>();
         _projectMemberRepositoryMock = new Mock<IProjectMemberRepository>();
-        _mapper = new MapperConfiguration(cfg => cfg.AddMaps(typeof(Application.Profiles.ProjectProfile))).CreateMapper();
-        _service = new ProjectMemberService(_projectRepositoryMock.Object, _projectMemberRepositoryMock.Object, _mapper);
+        Mock<IBusRepository> busRepositoryMock = new();
+        var mapper = new MapperConfiguration(cfg => cfg.AddMaps(typeof(Application.Profiles.ProjectProfile))).CreateMapper();
+        _service = new ProjectMemberService(_projectRepositoryMock.Object, _projectMemberRepositoryMock.Object, busRepositoryMock.Object,  mapper);
     }
 
     [Fact]
@@ -83,7 +83,7 @@ public class ProjectMemberServiceTests
             IsOwner = false
         };
         _projectRepositoryMock.Setup(r => r.GetById(projectId, "user123", false)).ReturnsAsync(existingProject);
-        _projectMemberRepositoryMock.Setup(r => r.Add(projectId, It.IsAny<ProjectMember>())).ReturnsAsync(newMember);
+        _projectMemberRepositoryMock.Setup(r => r.Add(projectId, It.IsAny<ProjectMember>(), It.IsAny<string>())).ReturnsAsync(newMember);
 
         // Act
         var result = await _service.Add(projectId, "newUser", "user123");

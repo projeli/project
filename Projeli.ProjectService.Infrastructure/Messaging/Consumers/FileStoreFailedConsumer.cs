@@ -1,12 +1,12 @@
 ﻿using MassTransit;
+using Projeli.Shared.Application.Messages.Files;
 using Projeli.Shared.Domain.Models.Files;
-using Projeli.Shared.Infrastructure.Messaging.Events;
 
 namespace Projeli.ProjectService.Infrastructure.Messaging.Consumers;
 
-public class FileStoreFailedConsumer : IConsumer<FileStoreFailedEvent>
+public class FileStoreFailedConsumer : IConsumer<FileStoreFailedMessage>
 {
-    public Task Consume(ConsumeContext<FileStoreFailedEvent> context)
+    public Task Consume(ConsumeContext<FileStoreFailedMessage> context)
     {
         if (context.Message.FileType.Id.Equals(FileTypes.ProjectLogo.Id))
         {

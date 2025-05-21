@@ -5,6 +5,7 @@ using Projeli.ProjectService.Application.Services.Interfaces;
 using Projeli.ProjectService.Domain.Models;
 using Projeli.ProjectService.Domain.Repositories;
 using Projeli.Shared.Application.Exceptions.Http;
+using Projeli.Shared.Application.Messages.Projects.Members;
 using Projeli.Shared.Domain.Results;
 
 namespace Projeli.ProjectService.Application.Services;
@@ -12,6 +13,7 @@ namespace Projeli.ProjectService.Application.Services;
 public partial class ProjectMemberService(
     IProjectRepository projectRepository,
     IProjectMemberRepository projectMemberRepository,
+    IBusRepository busRepository,
     IMapper mapper) : IProjectMemberService
 {
     public async Task<IResult<List<ProjectMemberDto>>> Get(Ulid projectId, string? performingUserId = null)
@@ -55,7 +57,17 @@ public partial class ProjectMemberService(
             Permissions = ProjectMemberPermissions.None,
             IsOwner = false,
             Role = "Member"
-        });
+        }, userId);
+
+        if (newMember is not null)
+        {
+            await busRepository.Publish(new ProjectMemberAddedMessage
+            {
+                ProjectId = projectId,
+                UserId = userId,
+                PerformingUserId = performingUserId,
+            });
+        }
 
         return newMember is not null
             ? new Result<ProjectMemberDto>(mapper.Map<ProjectMemberDto>(newMember))
@@ -197,8 +209,19 @@ public partial class ProjectMemberService(
             );
         }
 
-        var result = await projectMemberRepository.Delete(projectId, targetUserId);
-        return result
+        var success = await projectMemberRepository.Delete(projectId, targetUserId);
+
+        if (success)
+        {
+            await busRepository.Publish(new ProjectMemberRemovedMessage
+            {
+                ProjectId = projectId,
+                UserId = targetUserId,
+                PerformingUserId = performingUserId ?? targetUserId
+            });
+        }
+        
+        return success
             ? new Result<ProjectMemberDto>(mapper.Map<ProjectMemberDto>(targetMember))
             : Result<ProjectMemberDto>.Fail("Failed to delete project member");
     }

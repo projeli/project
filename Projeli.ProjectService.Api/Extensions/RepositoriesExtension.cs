@@ -10,5 +10,6 @@ public static class RepositoriesExtension
         services.AddScoped<IProjectRepository, ProjectRepository>();
         services.AddScoped<IProjectTagRepository, ProjectTagRepository>();
         services.AddScoped<IProjectMemberRepository, ProjectMemberRepository>();
+        services.AddScoped<IBusRepository, BusRepository>();
     }
 }

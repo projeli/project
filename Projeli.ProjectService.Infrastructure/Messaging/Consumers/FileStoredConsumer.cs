@@ -1,13 +1,14 @@
 ﻿using MassTransit;
 using Projeli.ProjectService.Application.Services.Interfaces;
+using Projeli.ProjectService.Domain.Repositories;
+using Projeli.Shared.Application.Messages.Files;
 using Projeli.Shared.Domain.Models.Files;
-using Projeli.Shared.Infrastructure.Messaging.Events;
 
 namespace Projeli.ProjectService.Infrastructure.Messaging.Consumers;
 
-public class FileStoredConsumer(IProjectService projectService, IBus bus) : IConsumer<FileStoredEvent>
+public class FileStoredConsumer(IProjectService projectService, IBusRepository busRepository) : IConsumer<FileStoredMessage>
 {
-    public async Task Consume(ConsumeContext<FileStoredEvent> context)
+    public async Task Consume(ConsumeContext<FileStoredMessage> context)
     {
         if (context.Message.FileType.Id.Equals(FileTypes.ProjectLogo.Id) && context.Message.ParentId is not null)
         {
@@ -26,7 +27,7 @@ public class FileStoredConsumer(IProjectService projectService, IBus bus) : ICon
 
             if (!result.Success || existingProject.Data.ImageUrl is null) return;
 
-            await bus.Publish(new FileDeleteEvent
+            await busRepository.Publish(new FileDeleteMessage
             {
                 FilePath = existingProject.Data.ImageUrl,
                 FileType = FileTypes.ProjectLogo,

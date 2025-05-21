@@ -1,13 +1,12 @@
-﻿using MassTransit;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Projeli.ProjectService.Domain.Models;
 using Projeli.ProjectService.Domain.Repositories;
 using Projeli.ProjectService.Infrastructure.Database;
-using Projeli.Shared.Infrastructure.Messaging.Events;
+using Projeli.Shared.Application.Messages.Projects;
 
 namespace Projeli.ProjectService.Infrastructure.Repositories;
 
-public class ProjectMemberRepository(ProjectServiceDbContext database, IBus bus) : IProjectMemberRepository
+public class ProjectMemberRepository(ProjectServiceDbContext database) : IProjectMemberRepository
 {
     public async Task<List<ProjectMember>> Get(Ulid projectId, string? performingUserId)
     {
@@ -18,7 +17,7 @@ public class ProjectMemberRepository(ProjectServiceDbContext database, IBus bus)
             .ToListAsync();
     }
 
-    public async Task<ProjectMember?> Add(Ulid projectId, ProjectMember projectMember)
+    public async Task<ProjectMember?> Add(Ulid projectId, ProjectMember projectMember, string userId)
     {
         var existingProject = await database.Projects
             .Include(project => project.Members)
@@ -32,23 +31,8 @@ public class ProjectMemberRepository(ProjectServiceDbContext database, IBus bus)
         }
         
         existingProject.Members.Add(projectMember);
-        var result = await database.SaveChangesAsync();
-
-        if (result > 0)
-        {
-            await bus.Publish(new ProjectUpdatedEvent
-            {
-                ProjectId = projectId,
-                ProjectName = existingProject.Name,
-                ProjectSlug = existingProject.Slug,
-                Members = existingProject.Members.Select(member => new ProjectUpdatedEvent.ProjectMember
-                {
-                    UserId = member.UserId,
-                    IsOwner = member.IsOwner
-                }).ToList()
-            });
-        }
-
+        await database.SaveChangesAsync();
+        
         return projectMember;
     }
 
@@ -91,23 +75,6 @@ public class ProjectMemberRepository(ProjectServiceDbContext database, IBus bus)
         
         existingProject.Members.Remove(projectMember);
         
-        var result = await database.SaveChangesAsync();
-
-        if (result > 0)
-        {
-            await bus.Publish(new ProjectUpdatedEvent
-            {
-                ProjectId = projectId,
-                ProjectName = existingProject.Name,
-                ProjectSlug = existingProject.Slug,
-                Members = existingProject.Members.Select(member => new ProjectUpdatedEvent.ProjectMember
-                {
-                    UserId = member.UserId,
-                    IsOwner = member.IsOwner
-                }).ToList()
-            });
-        }
-
-        return true;
+        return await database.SaveChangesAsync() > 0;
     }
 }

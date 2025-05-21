@@ -7,12 +7,16 @@ using Projeli.ProjectService.Domain.Repositories;
 using Projeli.ProjectService.Application.Dtos;
 using Projeli.ProjectService.Application.Services.Interfaces;
 using Projeli.Shared.Application.Exceptions.Http;
+using Projeli.Shared.Application.Messages.Files;
+using Projeli.Shared.Application.Messages.Projects;
+using Projeli.Shared.Domain.Models.Files;
 using Projeli.Shared.Domain.Results;
 
 namespace Projeli.ProjectService.Application.Services;
 
 public partial class ProjectService(
     IProjectRepository repository,
+    IBusRepository busRepository,
     IMapper mapper
 ) : IProjectService
 {
@@ -79,6 +83,13 @@ public partial class ProjectService(
 
         if (createdProject is not null)
         {
+            await busRepository.Publish(new ProjectCreatedMessage
+            {
+                ProjectId = createdProject.Id,
+                ProjectName = createdProject.Name,
+                ProjectSlug = createdProject.Slug,
+                UserId = userId
+            });
             await repository.UpdateImage(createdProject.Id, image, userId);
         }
 
@@ -114,6 +125,17 @@ public partial class ProjectService(
 
         var updatedProject = await repository.Update(existingProject);
 
+        if (updatedProject is not null)
+        {
+            await busRepository.Publish(new ProjectUpdatedDetailsMessage
+            {
+                ProjectId = updatedProject.Id,
+                ProjectName = updatedProject.Name,
+                ProjectSlug = updatedProject.Slug,
+                UserId = userId
+            });
+        }
+        
         return updatedProject is not null
             ? new Result<ProjectDto>(mapper.Map<ProjectDto>(updatedProject))
             : Result<ProjectDto>.Fail("Failed to update project");
@@ -224,6 +246,16 @@ public partial class ProjectService(
             await repository.UpdateOwnership(id, owner.Id, newOwner.Id, oldOwnerPermissions,
                 ProjectMemberPermissions.All);
 
+        if (updatedProject is not null)
+        {
+            await busRepository.Publish(new ProjectUpdatedOwnershipMessage
+            {
+                ProjectId = updatedProject.Id,
+                FromUserId = userId,
+                ToUserId = newOwnerUserId
+            });
+        }
+        
         return updatedProject is not null
             ? new Result<ProjectDto>(mapper.Map<ProjectDto>(updatedProject))
             : Result<ProjectDto>.Fail("Failed to update project");
@@ -284,7 +316,28 @@ public partial class ProjectService(
             throw new ForbiddenException("You do not have permission to delete this project");
         }
 
-        var success = await repository.Delete(id, userId);
+        var success = await repository.Delete(id);
+
+        if (success)
+        {
+            await busRepository.Publish(new ProjectDeletedMessage
+            {
+                ProjectId = existingProject.Id,
+                UserId = userId
+            });
+            
+            if (existingProject.ImageUrl is not null)
+            {
+                await busRepository.Publish(new FileDeleteMessage
+                {
+                    FilePath = existingProject.ImageUrl,
+                    FileType = FileTypes.ProjectLogo,
+                    ParentId = id.ToString(),
+                    UserId = userId
+                });
+            }
+        }
+        
         return success
             ? new Result<ProjectDto?>(mapper.Map<ProjectDto>(existingProject))
             : Result<ProjectDto?>.Fail("Failed to delete project");

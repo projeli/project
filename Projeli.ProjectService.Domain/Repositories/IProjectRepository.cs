@@ -15,12 +15,9 @@ public interface IProjectRepository
     Task<Project?> Create(Project project);
     Task<Project?> Update(Project project);
     Task<Project?> UpdateStatus(Ulid id, ProjectStatus status);
-
-
     Task<Project?> UpdateOwnership(Ulid id, Ulid fromMemberId, Ulid toMemberId,
         ProjectMemberPermissions fromPermissions, ProjectMemberPermissions toPermissions);
-
     Task<Project?> UpdateImageUrl(Ulid projectId, string filePath);
     Task UpdateImage(Ulid id, IFormFile image, string userId);
-    Task<bool> Delete(Ulid id, string userId);
+    Task<bool> Delete(Ulid id);
 }

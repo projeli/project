@@ -1,16 +1,16 @@
-﻿using MassTransit;
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Projeli.ProjectService.Domain.Models;
 using Projeli.ProjectService.Domain.Repositories;
 using Projeli.ProjectService.Infrastructure.Database;
+using Projeli.Shared.Application.Messages.Files;
+using Projeli.Shared.Application.Messages.Projects;
 using Projeli.Shared.Domain.Models.Files;
 using Projeli.Shared.Domain.Results;
-using Projeli.Shared.Infrastructure.Messaging.Events;
 
 namespace Projeli.ProjectService.Infrastructure.Repositories;
 
-public class ProjectRepository(ProjectServiceDbContext database, IBus bus) : IProjectRepository
+public class ProjectRepository(ProjectServiceDbContext database, IBusRepository busRepository) : IProjectRepository
 {
     public async Task<PagedResult<Project>> Get(string query, ProjectOrder order, List<ProjectCategory>? categories,
         string[]? tags, int page, int pageSize, string? fromUserId = null, string? userId = null)
@@ -128,22 +128,7 @@ public class ProjectRepository(ProjectServiceDbContext database, IBus bus) : IPr
     public async Task<Project?> Create(Project project)
     {
         var createdProject = await database.Projects.AddAsync(project);
-        var result = await database.SaveChangesAsync();
-
-        if (result > 0)
-        {
-            await bus.Publish(new ProjectCreatedEvent
-            {
-                ProjectId = createdProject.Entity.Id,
-                ProjectName = createdProject.Entity.Name,
-                ProjectSlug = createdProject.Entity.Slug,
-                Members = createdProject.Entity.Members.Select(m => new ProjectCreatedEvent.ProjectMember
-                {
-                    UserId = m.UserId,
-                    IsOwner = m.IsOwner,
-                }).ToList()
-            });
-        }
+        await database.SaveChangesAsync();
 
         return createdProject.Entity;
     }
@@ -190,22 +175,7 @@ public class ProjectRepository(ProjectServiceDbContext database, IBus bus) : IPr
         existingProject.ImageUrl = project.ImageUrl;
         existingProject.UpdatedAt = project.UpdatedAt;
 
-        var result = await database.SaveChangesAsync();
-
-        if (result > 0)
-        {
-            await bus.Publish(new ProjectUpdatedEvent
-            {
-                ProjectId = existingProject.Id,
-                ProjectName = existingProject.Name,
-                ProjectSlug = existingProject.Slug,
-                Members = existingProject.Members.Select(m => new ProjectUpdatedEvent.ProjectMember
-                {
-                    UserId = m.UserId,
-                    IsOwner = m.IsOwner,
-                }).ToList()
-            });
-        }
+        await database.SaveChangesAsync();
 
         return existingProject;
     }
@@ -241,22 +211,7 @@ public class ProjectRepository(ProjectServiceDbContext database, IBus bus) : IPr
         toMember.IsOwner = true;
         toMember.Permissions = toPermissions;
 
-        var result = await database.SaveChangesAsync();
-        
-        if (result > 0)
-        {
-            await bus.Publish(new ProjectUpdatedEvent
-            {
-                ProjectId = existingProject.Id,
-                ProjectName = existingProject.Name,
-                ProjectSlug = existingProject.Slug,
-                Members = existingProject.Members.Select(m => new ProjectUpdatedEvent.ProjectMember
-                {
-                    UserId = m.UserId,
-                    IsOwner = m.IsOwner,
-                }).ToList()
-            });
-        }
+        await database.SaveChangesAsync();
 
         return existingProject;
     }
@@ -274,7 +229,7 @@ public class ProjectRepository(ProjectServiceDbContext database, IBus bus) : IPr
 
     public async Task UpdateImage(Ulid id, IFormFile image, string userId)
     {
-        await bus.Publish(new FileStoreEvent
+        await busRepository.Publish(new FileStoreMessage
         {
             FileName = Ulid.NewUlid().ToString(),
             FileExtension = image.FileName.Split('.').Last(),
@@ -286,33 +241,14 @@ public class ProjectRepository(ProjectServiceDbContext database, IBus bus) : IPr
         });
     }
 
-    public async Task<bool> Delete(Ulid id, string userId)
+    public async Task<bool> Delete(Ulid id)
     {
         var existingProject = await database.Projects.FirstOrDefaultAsync(p => p.Id == id);
         if (existingProject is null) return false;
 
         database.Projects.Remove(existingProject);
-        var result = await database.SaveChangesAsync();
 
-        if (result > 0)
-        {
-            await bus.Publish(new ProjectDeletedEvent
-            {
-                ProjectId = existingProject.Id,
-            });
-            if (existingProject.ImageUrl is not null)
-            {
-                await bus.Publish(new FileDeleteEvent
-                {
-                    FilePath = existingProject.ImageUrl,
-                    FileType = FileTypes.ProjectLogo,
-                    ParentId = existingProject.Id.ToString(),
-                    UserId = userId
-                });
-            }
-        }
-
-        return result > 0;
+        return await database.SaveChangesAsync() > 0;
     }
 
     private static async Task<byte[]> ConvertToByteArrayAsync(IFormFile formFile)

@@ -1,8 +1,9 @@
-﻿using System.Reflection;
-using MassTransit;
+﻿using MassTransit;
 using Projeli.ProjectService.Infrastructure.Messaging.Consumers;
+using Projeli.Shared.Application.Messages.Files;
+using Projeli.Shared.Application.Messages.Projects;
+using Projeli.Shared.Application.Messages.Projects.Members;
 using Projeli.Shared.Infrastructure.Exceptions;
-using Projeli.Shared.Infrastructure.Messaging.Events;
 
 namespace Projeli.ProjectService.Api.Extensions;
 
@@ -12,7 +13,6 @@ public static class RabbitMqExtension
     {
         services.AddMassTransit(x =>
         {
-            x.AddConsumer<ProjectSyncRequestConsumer>();
             x.AddConsumer<FileStoreFailedConsumer>();
             x.AddConsumer<FileStoredConsumer>();
             x.AddConsumer<UserDeletedConsumer>();
@@ -23,11 +23,6 @@ public static class RabbitMqExtension
                 {
                     h.Username(configuration["RabbitMq:Username"] ?? throw new MissingEnvironmentVariableException("RabbitMq:Username"));
                     h.Password(configuration["RabbitMq:Password"] ?? throw new MissingEnvironmentVariableException("RabbitMq:Password"));
-                });
-                
-                config.ReceiveEndpoint("project-project-sync-request-queue", e =>
-                {
-                    e.ConfigureConsumer<ProjectSyncRequestConsumer>(context);
                 });
                 
                 config.ReceiveEndpoint("project-file-store-failed-queue", e =>
@@ -45,12 +40,14 @@ public static class RabbitMqExtension
                     e.ConfigureConsumer<UserDeletedConsumer>(context);
                 });
                 
-                config.PublishFanOut<ProjectCreatedEvent>();
-                config.PublishFanOut<ProjectSyncEvent>();
-                config.PublishFanOut<ProjectUpdatedEvent>();
-                config.PublishFanOut<ProjectDeletedEvent>();
-                config.PublishFanOut<FileStoreEvent>();
-                config.PublishFanOut<FileDeleteEvent>();
+                config.PublishFanOut<ProjectCreatedMessage>();
+                config.PublishFanOut<ProjectUpdatedDetailsMessage>();
+                config.PublishFanOut<ProjectUpdatedOwnershipMessage>();
+                config.PublishFanOut<ProjectMemberAddedMessage>();
+                config.PublishFanOut<ProjectMemberRemovedMessage>();
+                config.PublishFanOut<ProjectDeletedMessage>();
+                config.PublishFanOut<FileStoreMessage>();
+                config.PublishFanOut<FileDeleteMessage>();
             });
         });
     }
