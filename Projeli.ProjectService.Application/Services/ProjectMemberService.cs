@@ -151,7 +151,7 @@ public partial class ProjectMemberService(
         }
 
         var difference = requestPermissions ^ memberToUpdate.Permissions;
-        if (difference != ProjectMemberPermissions.None && !performingMember.Permissions.HasFlag(difference))
+        if (!performingMember.IsOwner && difference != ProjectMemberPermissions.None && !performingMember.Permissions.HasFlag(difference))
         {
             throw new ForbiddenException("You can only add permissions that you have.");
         }

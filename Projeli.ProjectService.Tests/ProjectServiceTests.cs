@@ -389,4 +389,339 @@ public class ProjectServiceTests
         Assert.False(result.Success);
         Assert.Contains("tags", result.Errors.Keys);
     }
+    
+    [Fact]
+    public async Task GetByUserId_ReturnsProjects_WhenUserHasProjects()
+    {
+        // Arrange
+        var userId = "user123";
+        var projects = new List<Project>
+        {
+            new Project { Id = Ulid.NewUlid(), Name = "Project1", Members = [new ProjectMember { UserId = userId, IsOwner = true }] },
+            new Project { Id = Ulid.NewUlid(), Name = "Project2", Members = [new ProjectMember { UserId = userId, IsOwner = false }] }
+        };
+        _repositoryMock.Setup(r => r.GetByUserId(userId)).ReturnsAsync(projects);
+        _mapper.Map<List<ProjectDto>>(projects);
+
+        // Act
+        var result = await _service.GetByUserId(userId);
+
+        // Assert
+        Assert.True(result.Success);
+        Assert.Equal(2, result.Data!.Count);
+        Assert.Equal("Project1", result.Data[0].Name);
+        Assert.Equal("Project2", result.Data[1].Name);
+    }
+
+    [Fact]
+    public async Task GetByUserId_ReturnsEmptyList_WhenUserHasNoProjects()
+    {
+        // Arrange
+        const string userId = "user123";
+        _repositoryMock.Setup(r => r.GetByUserId(userId)).ReturnsAsync([]);
+
+        // Act
+        var result = await _service.GetByUserId(userId);
+
+        // Assert
+        Assert.True(result.Success);
+        Assert.Empty(result.Data!);
+    }
+
+    [Theory]
+    [InlineData(ProjectStatus.Published)]
+    [InlineData(ProjectStatus.Archived)]
+    public async Task UpdateStatus_ReturnsUpdatedProject_WhenAuthorizedAndValidStatus(ProjectStatus status)
+    {
+        // Arrange
+        var id = Ulid.NewUlid();
+        var existingProject = new Project
+        {
+            Id = id,
+            Status = status == ProjectStatus.Published ? ProjectStatus.Draft : ProjectStatus.Published,
+            Members = [new ProjectMember { UserId = "user123", IsOwner = true }]
+        };
+        var updatedProject = new Project
+        {
+            Id = id,
+            Status = status,
+            Members = [new ProjectMember { UserId = "user123", IsOwner = true }]
+        };
+        _repositoryMock.Setup(r => r.GetById(id, "user123", false)).ReturnsAsync(existingProject);
+        _repositoryMock.Setup(r => r.UpdateStatus(id, status)).ReturnsAsync(updatedProject);
+
+        // Act
+        var result = await _service.UpdateStatus(id, status, "user123");
+
+        // Assert
+        Assert.True(result.Success);
+        Assert.Equal(status, result.Data!.Status);
+    }
+
+    [Fact]
+    public async Task UpdateStatus_ThrowsForbidden_WhenNotAuthorized()
+    {
+        // Arrange
+        var id = Ulid.NewUlid();
+        var existingProject = new Project
+        {
+            Id = id,
+            Status = ProjectStatus.Draft,
+            Members = [new ProjectMember { UserId = "otherUser", IsOwner = true }]
+        };
+        _repositoryMock.Setup(r => r.GetById(id, "user123", false)).ReturnsAsync(existingProject);
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ForbiddenException>(() => _service.UpdateStatus(id, ProjectStatus.Published, "user123"));
+    }
+
+    [Theory]
+    [InlineData(ProjectStatus.Draft)]
+    [InlineData(ProjectStatus.Review)]
+    public async Task UpdateStatus_ReturnsError_WhenInvalidStatusTransition(ProjectStatus status)
+    {
+        // Arrange
+        var id = Ulid.NewUlid();
+        var existingProject = new Project
+        {
+            Id = id,
+            Status = ProjectStatus.Published,
+            Members = [new ProjectMember { UserId = "user123", IsOwner = true }]
+        };
+        _repositoryMock.Setup(r => r.GetById(id, "user123", false)).ReturnsAsync(existingProject);
+
+        // Act
+        var result = await _service.UpdateStatus(id, status, "user123");
+
+        // Assert
+        Assert.False(result.Success);
+        Assert.Contains("Cannot set status to", result.Message);
+    }
+
+    [Fact]
+    public async Task UpdateOwnership_ReturnsUpdatedProject_WhenAuthorizedAndNewOwnerExists()
+    {
+        // Arrange
+        var id = Ulid.NewUlid();
+        var existingProject = new Project
+        {
+            Id = id,
+            Members =
+            [
+                new ProjectMember { Id = Ulid.NewUlid(), UserId = "user123", IsOwner = true },
+                new ProjectMember { Id = Ulid.NewUlid(), UserId = "newOwner", IsOwner = false }
+            ]
+        };
+        _repositoryMock.Setup(r => r.GetById(id, "user123", false)).ReturnsAsync(existingProject);
+        _repositoryMock.Setup(r => r.UpdateOwnership(id, It.IsAny<Ulid>(), It.IsAny<Ulid>(), It.IsAny<ProjectMemberPermissions>(), It.IsAny<ProjectMemberPermissions>()))
+            .ReturnsAsync(existingProject);
+        _mapper.Map<ProjectDto>(existingProject);
+
+        // Act
+        var result = await _service.UpdateOwnership(id, "newOwner", "user123");
+
+        // Assert
+        Assert.True(result.Success);
+        Assert.NotNull(result.Data);
+    }
+
+    [Fact]
+    public async Task UpdateOwnership_ThrowsForbidden_WhenNotOwner()
+    {
+        // Arrange
+        var id = Ulid.NewUlid();
+        var existingProject = new Project
+        {
+            Id = id,
+            Members = [new ProjectMember { UserId = "otherUser", IsOwner = true }]
+        };
+        _repositoryMock.Setup(r => r.GetById(id, "user123", false)).ReturnsAsync(existingProject);
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ForbiddenException>(() => _service.UpdateOwnership(id, "newOwner", "user123"));
+    }
+
+    [Fact]
+    public async Task UpdateOwnership_ReturnsError_WhenNewOwnerNotInProject()
+    {
+        // Arrange
+        var id = Ulid.NewUlid();
+        var existingProject = new Project
+        {
+            Id = id,
+            Members = [new ProjectMember { Id = Ulid.NewUlid(), UserId = "user123", IsOwner = true }]
+        };
+        _repositoryMock.Setup(r => r.GetById(id, "user123", false)).ReturnsAsync(existingProject);
+
+        // Act
+        var result = await _service.UpdateOwnership(id, "newOwner", "user123");
+
+        // Assert
+        Assert.False(result.Success);
+        Assert.Contains("New owner does not exist in the project", result.Message);
+    }
+
+    [Fact]
+    public async Task UpdateImageUrl_ReturnsUpdatedProject_WhenProjectExists()
+    {
+        // Arrange
+        var id = Ulid.NewUlid();
+        var existingProject = new Project { Id = id, Name = "Test" };
+        _repositoryMock.Setup(r => r.GetById(id, "user123", false)).ReturnsAsync(existingProject);
+        _repositoryMock.Setup(r => r.UpdateImageUrl(id, "path/to/image")).ReturnsAsync(existingProject);
+        _mapper.Map<ProjectDto>(existingProject);
+
+        // Act
+        var result = await _service.UpdateImageUrl(id, "path/to/image", "user123");
+
+        // Assert
+        Assert.True(result.Success);
+        Assert.NotNull(result.Data);
+    }
+
+    [Fact]
+    public async Task UpdateImageUrl_ReturnsNotFound_WhenProjectDoesNotExist()
+    {
+        // Arrange
+        var id = Ulid.NewUlid();
+        _repositoryMock.Setup(r => r.GetById(id, "user123", false)).ReturnsAsync((Project?)null);
+
+        // Act
+        var result = await _service.UpdateImageUrl(id, "path/to/image", "user123");
+
+        // Assert
+        Assert.False(result.Success);
+        Assert.Null(result.Data);
+        Assert.Equal("Not found", result.Message);
+    }
+
+    [Fact]
+    public async Task UpdateImage_ReturnsUpdatedProject_WhenAuthorizedAndValidImage()
+    {
+        // Arrange
+        var id = Ulid.NewUlid();
+        var existingProject = new Project
+        {
+            Id = id,
+            Members = [new ProjectMember { UserId = "user123", IsOwner = true }]
+        };
+        var imageFile = new FormFile(new MemoryStream(new byte[1024]), 0, 1024, "file", "test.png")
+        {
+            Headers = new HeaderDictionary(),
+            ContentType = "image/png"
+        };
+        _repositoryMock.Setup(r => r.GetById(id, "user123", false)).ReturnsAsync(existingProject);
+        _repositoryMock.Setup(r => r.UpdateImage(id, imageFile, "user123")).Returns(Task.CompletedTask);
+        _mapper.Map<ProjectDto>(existingProject);
+
+        // Act
+        var result = await _service.UpdateImage(id, imageFile, "user123");
+
+        // Assert
+        Assert.True(result.Success);
+        Assert.NotNull(result.Data);
+    }
+
+    [Fact]
+    public async Task UpdateImage_ThrowsForbidden_WhenNotAuthorized()
+    {
+        // Arrange
+        var id = Ulid.NewUlid();
+        var existingProject = new Project
+        {
+            Id = id,
+            Members = [new ProjectMember { UserId = "otherUser", IsOwner = true }]
+        };
+        var imageFile = new FormFile(new MemoryStream(new byte[1024]), 0, 1024, "file", "test.png")
+        {
+            Headers = new HeaderDictionary(),
+            ContentType = "image/png"
+        };
+        _repositoryMock.Setup(r => r.GetById(id, "user123", false)).ReturnsAsync(existingProject);
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ForbiddenException>(() => _service.UpdateImage(id, imageFile, "user123"));
+    }
+
+    [Theory]
+    [InlineData(512, "image/png", "Image must be at least 1KB")]
+    [InlineData(3 * 1024 * 1024, "image/png", "Image must be at most 2MB")]
+    [InlineData(1024, "image/bmp", "Image must be a JPEG, PNG, GIF or WEBP")]
+    public async Task UpdateImage_ReturnsError_WhenInvalidImage(long fileSize, string contentType, string expectedError)
+    {
+        // Arrange
+        var id = Ulid.NewUlid();
+        var existingProject = new Project
+        {
+            Id = id,
+            Members = [new ProjectMember { UserId = "user123", IsOwner = true }]
+        };
+        var imageFile = new FormFile(new MemoryStream(new byte[fileSize]), 0, fileSize, "file", "test")
+        {
+            Headers = new HeaderDictionary(),
+            ContentType = contentType
+        };
+        _repositoryMock.Setup(r => r.GetById(id, "user123", false)).ReturnsAsync(existingProject);
+
+        // Act
+        var result = await _service.UpdateImage(id, imageFile, "user123");
+
+        // Assert
+        Assert.False(result.Success);
+        Assert.Contains(expectedError, result.Message);
+    }
+
+    [Fact]
+    public async Task Delete_ReturnsDeletedProject_WhenAuthorized()
+    {
+        // Arrange
+        var id = Ulid.NewUlid();
+        var existingProject = new Project
+        {
+            Id = id,
+            Members = [new ProjectMember { UserId = "user123", IsOwner = true }]
+        };
+        _repositoryMock.Setup(r => r.GetById(id, "user123", false)).ReturnsAsync(existingProject);
+        _repositoryMock.Setup(r => r.Delete(id, "user123")).ReturnsAsync(true);
+        _mapper.Map<ProjectDto>(existingProject);
+
+        // Act
+        var result = await _service.Delete(id, "user123");
+
+        // Assert
+        Assert.True(result.Success);
+        Assert.NotNull(result.Data);
+    }
+
+    [Fact]
+    public async Task Delete_ThrowsForbidden_WhenNotAuthorized()
+    {
+        // Arrange
+        var id = Ulid.NewUlid();
+        var existingProject = new Project
+        {
+            Id = id,
+            Members = [new ProjectMember { UserId = "otherUser", IsOwner = true }]
+        };
+        _repositoryMock.Setup(r => r.GetById(id, "user123", false)).ReturnsAsync(existingProject);
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ForbiddenException>(() => _service.Delete(id, "user123"));
+    }
+
+    [Fact]
+    public async Task Delete_ReturnsError_WhenProjectNotFound()
+    {
+        // Arrange
+        var id = Ulid.NewUlid();
+        _repositoryMock.Setup(r => r.GetById(id, "user123", false)).ReturnsAsync((Project?)null);
+
+        // Act
+        var result = await _service.Delete(id, "user123");
+
+        // Assert
+        Assert.False(result.Success);
+        Assert.Null(result.Data);
+        Assert.Equal("Not found", result.Message);
+    }
 }
