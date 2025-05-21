@@ -21,45 +21,48 @@ jobs:
         with:
           java-version: 17
           distribution: 'zulu'
-      # Checkout the main project repository
+
       - uses: actions/checkout@v3
         with:
-          path: project  # Check out into a specific directory
+          path: project
 
-      # Checkout the shared repository
       - uses: actions/checkout@v3
         with:
           repository: projeli/shared
-          path: shared   # Check out into a separate directory
-          token: ${{ secrets.GITHUB_TOKEN }}  # Usually sufficient for same-org repos
-          
+          path: shared
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Cache SonarQube Cloud packages
         uses: actions/cache@v4
         with:
           path: ~\sonar\cache
-          key: ${{ runner.os }}-sonar
+          key: ${{ runner.os }}-sonar-${{ hashFiles('**/project.json') }}
           restore-keys: ${{ runner.os }}-sonar
+
       - name: Cache SonarQube Cloud scanner
         id: cache-sonar-scanner
         uses: actions/cache@v4
         with:
           path: .\.sonar\scanner
-          key: ${{ runner.os }}-sonar-scanner
+          key: ${{ runner.os }}-sonar-scanner-${{ hashFiles('**/project.json') }}
           restore-keys: ${{ runner.os }}-sonar-scanner
+
       - name: Install SonarQube Cloud scanner
         if: steps.cache-sonar-scanner.outputs.cache-hit != 'true'
         shell: powershell
         run: |
           New-Item -Path .\.sonar\scanner -ItemType Directory
           dotnet tool update dotnet-sonarscanner --tool-path .\.sonar\scanner
+
       - name: Build and analyze
         working-directory: project
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         shell: powershell
         run: |
-          ..\.sonar\scanner\dotnet-sonarscanner begin /k:"projeli_project" /o:"projeli" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="https://sonarcloud.io"
+          ..\.sonar\scanner\dotnet-sonarscanner begin /k:"projeli_project" /o:"projeli" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.cs.opencover.reportsPaths="TestResults/*/coverage.opencover.xml" /d:sonar.sources=".,../shared"
           dotnet build
+          dotnet test --collect:"XPlat Code Coverage"
           ..\.sonar\scanner\dotnet-sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
           
   test:
