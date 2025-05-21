@@ -36,7 +36,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~\sonar\cache
-          key: ${{ runner.os }}-sonar-${{ hashFiles('**/project.json') }}
+          key: ${{ runner.os }}-sonar
           restore-keys: ${{ runner.os }}-sonar
 
       - name: Cache SonarQube Cloud scanner
@@ -44,7 +44,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .\.sonar\scanner
-          key: ${{ runner.os }}-sonar-scanner-${{ hashFiles('**/project.json') }}
+          key: ${{ runner.os }}-sonar-scanner
           restore-keys: ${{ runner.os }}-sonar-scanner
 
       - name: Install SonarQube Cloud scanner
