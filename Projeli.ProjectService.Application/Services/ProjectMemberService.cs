@@ -1,4 +1,5 @@
-﻿using AutoMapper;
+﻿using System.Text.RegularExpressions;
+using AutoMapper;
 using Projeli.ProjectService.Application.Dtos;
 using Projeli.ProjectService.Application.Services.Interfaces;
 using Projeli.ProjectService.Domain.Models;
@@ -8,7 +9,7 @@ using Projeli.Shared.Domain.Results;
 
 namespace Projeli.ProjectService.Application.Services;
 
-public class ProjectMemberService(
+public partial class ProjectMemberService(
     IProjectRepository projectRepository,
     IProjectMemberRepository projectMemberRepository,
     IMapper mapper) : IProjectMemberService
@@ -61,7 +62,8 @@ public class ProjectMemberService(
             : Result<ProjectMemberDto>.Fail("Failed to add project member");
     }
 
-    public async Task<IResult<ProjectMemberDto?>> Delete(Ulid projectId, string targetUserId, string performingUserId)
+    public async Task<IResult<ProjectMemberDto?>> UpdateRole(Ulid projectId, Ulid userId, string role,
+        string performingUserId)
     {
         var existingProject = await projectRepository.GetById(projectId, performingUserId);
         if (existingProject is null) return Result<ProjectMemberDto>.NotFound();
@@ -69,7 +71,109 @@ public class ProjectMemberService(
         var performingMember = existingProject.Members.FirstOrDefault(member => member.UserId == performingUserId);
         if (performingMember is null || (!performingMember.IsOwner &&
                                          !performingMember.Permissions.HasFlag(ProjectMemberPermissions
-                                             .DeleteProjectMembers)))
+                                             .EditProjectMemberRoles)))
+        {
+            throw new ForbiddenException("You do not have permission to edit project member roles.");
+        }
+
+        var targetMember = existingProject.Members.FirstOrDefault(member => member.Id == userId);
+
+        if (targetMember is null)
+        {
+            return Result<ProjectMemberDto>.NotFound();
+        }
+
+        if (targetMember.IsOwner && !performingMember.IsOwner)
+        {
+            throw new ForbiddenException(
+                "You cannot change the role of the owner of the project.");
+        }
+
+        if (role.Length < 3)
+        {
+            return Result<ProjectMemberDto?>.ValidationFail(new Dictionary<string, string[]>
+            {
+                { nameof(role), ["Role must be at least 3 characters long."] }
+            });
+        }
+
+        if (role.Length > 16)
+        {
+            return Result<ProjectMemberDto?>.ValidationFail(new Dictionary<string, string[]>
+            {
+                { nameof(role), ["Role must be at most 16 characters long."] }
+            });
+        }
+
+        if (!RoleRegex().IsMatch(role))
+        {
+            return Result<ProjectMemberDto?>.ValidationFail(new Dictionary<string, string[]>
+            {
+                { nameof(role), ["Role can only contain letters, numbers, spaces, and special characters."] }
+            });
+        }
+
+        targetMember.Role = role;
+
+        var result = await projectMemberRepository.UpdateRole(projectId, userId, role);
+
+        return result is not null
+            ? new Result<ProjectMemberDto>(mapper.Map<ProjectMemberDto>(targetMember))
+            : Result<ProjectMemberDto>.Fail("Failed to update project member role");
+    }
+
+    public async Task<IResult<ProjectMemberDto?>> UpdatePermissions(Ulid projectId, Ulid userId,
+        ProjectMemberPermissions requestPermissions,
+        string performingUserId)
+    {
+        var existingProject = await projectRepository.GetById(projectId, performingUserId);
+        if (existingProject is null) return Result<ProjectMemberDto>.NotFound();
+
+        var performingMember = existingProject.Members.FirstOrDefault(member => member.UserId == performingUserId);
+        if (performingMember is null || (!performingMember.IsOwner &&
+                                         !performingMember.Permissions.HasFlag(ProjectMemberPermissions
+                                             .EditProjectMemberPermissions)))
+        {
+            throw new ForbiddenException("You do not have permission to edit project member permissions.");
+        }
+
+        var memberToUpdate = existingProject.Members.FirstOrDefault(member => member.Id == userId);
+
+        if (memberToUpdate is null)
+        {
+            return Result<ProjectMemberDto>.NotFound();
+        }
+
+        if (memberToUpdate.IsOwner)
+        {
+            throw new ForbiddenException(
+                "You cannot change the permissions of the owner of the project.");
+        }
+
+        var difference = requestPermissions ^ memberToUpdate.Permissions;
+        if (difference != ProjectMemberPermissions.None && !performingMember.Permissions.HasFlag(difference))
+        {
+            throw new ForbiddenException("You can only add permissions that you have.");
+        }
+
+        memberToUpdate.Permissions = requestPermissions;
+
+        var result = await projectMemberRepository.UpdatePermissions(projectId, userId, requestPermissions);
+        return result is not null
+            ? new Result<ProjectMemberDto>(mapper.Map<ProjectMemberDto>(memberToUpdate))
+            : Result<ProjectMemberDto>.Fail("Failed to update project member permissions");
+    }
+
+    public async Task<IResult<ProjectMemberDto?>> Delete(Ulid projectId, string targetUserId, string? performingUserId,
+        bool force = false)
+    {
+        var existingProject = await projectRepository.GetById(projectId, performingUserId, force);
+        if (existingProject is null) return Result<ProjectMemberDto>.NotFound();
+
+        var performingMember = existingProject.Members.FirstOrDefault(member => member.UserId == performingUserId);
+        if (!force && (performingMember is null || (!performingMember.IsOwner &&
+                                                    !performingMember.Permissions.HasFlag(ProjectMemberPermissions
+                                                        .DeleteProjectMembers))))
         {
             throw new ForbiddenException("You do not have permission to delete project members.");
         }
@@ -99,45 +203,6 @@ public class ProjectMemberService(
             : Result<ProjectMemberDto>.Fail("Failed to delete project member");
     }
 
-    public async Task<IResult<ProjectMemberDto?>> UpdatePermissions(Ulid projectId, string userId,
-        ProjectMemberPermissions requestPermissions,
-        string performingUserId)
-    {
-        var existingProject = await projectRepository.GetById(projectId, performingUserId);
-        if (existingProject is null) return Result<ProjectMemberDto>.NotFound();
-
-        var performingMember = existingProject.Members.FirstOrDefault(member => member.UserId == performingUserId);
-        if (performingMember is null || (!performingMember.IsOwner &&
-                                         !performingMember.Permissions.HasFlag(ProjectMemberPermissions
-                                             .EditProjectMemberPermissions)))
-        {
-            throw new ForbiddenException("You do not have permission to edit project member permissions.");
-        }
-
-        var memberToUpdate = existingProject.Members.FirstOrDefault(member => member.UserId == userId);
-
-        if (memberToUpdate is null)
-        {
-            return Result<ProjectMemberDto>.NotFound();
-        }
-
-        if (memberToUpdate.IsOwner)
-        {
-            throw new ForbiddenException(
-                "You cannot change the permissions of the owner of the project. Please transfer ownership first.");
-        }
-
-        var difference = requestPermissions ^ memberToUpdate.Permissions;
-        if (difference != ProjectMemberPermissions.None && !performingMember.Permissions.HasFlag(difference))
-        {
-            throw new ForbiddenException("You can only add permissions that you have.");
-        }
-
-        memberToUpdate.Permissions = requestPermissions;
-
-        var result = await projectMemberRepository.UpdatePermissions(projectId, userId, requestPermissions);
-        return result is not null
-            ? new Result<ProjectMemberDto>(mapper.Map<ProjectMemberDto>(memberToUpdate))
-            : Result<ProjectMemberDto>.Fail("Failed to update project member permissions");
-    }
+    [GeneratedRegex(@"^[\w\s\.,!?'""()&+\-*/\\:;@%<>=|{}\[\]^~]{3,16}$")]
+    public static partial Regex RoleRegex();
 }

@@ -1,6 +1,7 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 using Projeli.ProjectService.Domain.Models;
+using Projeli.Shared.Application.Converters;
 
 namespace Projeli.ProjectService.Api.Extensions;
 
@@ -10,8 +11,8 @@ public static class JsonExtension
     {
         services.AddJsonOptions(options =>
         {
-            options.JsonSerializerOptions.Converters.Add(new Converters.JsonNumberEnumConverter<ProjectMemberPermissions>());
-            // options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+            options.JsonSerializerOptions.Converters.Add(new JsonStringNumberEnumConverter<ProjectMemberPermissions>());
+            options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
             options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
         });
     }

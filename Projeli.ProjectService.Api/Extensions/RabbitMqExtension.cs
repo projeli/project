@@ -15,6 +15,7 @@ public static class RabbitMqExtension
             x.AddConsumer<ProjectSyncRequestConsumer>();
             x.AddConsumer<FileStoreFailedConsumer>();
             x.AddConsumer<FileStoredConsumer>();
+            x.AddConsumer<UserDeletedConsumer>();
             
             x.UsingRabbitMq((context, config) =>
             {
@@ -37,6 +38,11 @@ public static class RabbitMqExtension
                 config.ReceiveEndpoint("project-file-stored-queue", e =>
                 {
                     e.ConfigureConsumer<FileStoredConsumer>(context);
+                });
+                
+                config.ReceiveEndpoint("project-user-deleted-queue", e =>
+                {
+                    e.ConfigureConsumer<UserDeletedConsumer>(context);
                 });
                 
                 config.PublishFanOut<ProjectCreatedEvent>();

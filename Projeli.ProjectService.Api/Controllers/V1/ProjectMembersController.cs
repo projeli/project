@@ -28,19 +28,27 @@ public class ProjectMembersController(IProjectMemberService projectMemberService
         return HandleResult(result);
     }
     
+    [HttpPut("{userId}/role")]
+    [Authorize]
+    public async Task<IActionResult> UpdateProjectMemberRole([FromRoute] Ulid projectId, [FromRoute] Ulid userId, [FromBody] UpdateProjectMemberRoleRequest request)
+    {
+        var result = await projectMemberService.UpdateRole(projectId, userId, request.Role, User.GetId());
+        return HandleResult(result);
+    }
+
+    [HttpPut("{userId}/permissions")]
+    [Authorize]
+    public async Task<IActionResult> UpdateProjectMemberPermissions([FromRoute] Ulid projectId, [FromRoute] Ulid userId, [FromBody] UpdateProjectMemberPermissionsRequest request)
+    {
+        var result = await projectMemberService.UpdatePermissions(projectId, userId, request.Permissions, User.GetId());
+        return HandleResult(result);
+    }
+
     [HttpDelete("{userId}")]
     [Authorize]
     public async Task<IActionResult> RemoveProjectMember([FromRoute] Ulid projectId, [FromRoute] string userId)
     {
         var result = await projectMemberService.Delete(projectId, userId, User.GetId());
-        return HandleResult(result);
-    }
-    
-    [HttpPut("{userId}/permissions")]
-    [Authorize]
-    public async Task<IActionResult> UpdateProjectMemberPermissions([FromRoute] Ulid projectId, [FromRoute] string userId, [FromBody] UpdateProjectMemberPermissionsRequest request)
-    {
-        var result = await projectMemberService.UpdatePermissions(projectId, userId, request.Permissions, User.GetId());
         return HandleResult(result);
     }
 }

@@ -89,6 +89,16 @@ public class ProjectRepository(ProjectServiceDbContext database, IBus bus) : IPr
         };
     }
 
+    public async Task<List<Project>> GetByUserId(string userId)
+    {
+        return await database.Projects
+            .AsNoTracking()
+            .Include(project => project.Members)
+            .Include(project => project.Tags)
+            .Where(project => project.Members.Any(member => member.UserId == userId))
+            .ToListAsync();
+    }
+
     public async Task<Project?> GetById(Ulid id, string? userId = null, bool force = false)
     {
         return await database.Projects
@@ -231,7 +241,22 @@ public class ProjectRepository(ProjectServiceDbContext database, IBus bus) : IPr
         toMember.IsOwner = true;
         toMember.Permissions = toPermissions;
 
-        await database.SaveChangesAsync();
+        var result = await database.SaveChangesAsync();
+        
+        if (result > 0)
+        {
+            await bus.Publish(new ProjectUpdatedEvent
+            {
+                ProjectId = existingProject.Id,
+                ProjectName = existingProject.Name,
+                ProjectSlug = existingProject.Slug,
+                Members = existingProject.Members.Select(m => new ProjectUpdatedEvent.ProjectMember
+                {
+                    UserId = m.UserId,
+                    IsOwner = m.IsOwner,
+                }).ToList()
+            });
+        }
 
         return existingProject;
     }

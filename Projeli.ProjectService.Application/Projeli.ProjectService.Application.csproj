@@ -15,7 +15,6 @@
         <PackageReference Include="AutoMapper" Version="13.0.1" />
         <PackageReference Include="Microsoft.AspNetCore.Http.Features" Version="2.2.0" />
         <PackageReference Include="Microsoft.Extensions.Options" Version="8.0.2" />
-        <PackageReference Include="UUIDNext" Version="3.0.0" />
     </ItemGroup>
 
     <ItemGroup>

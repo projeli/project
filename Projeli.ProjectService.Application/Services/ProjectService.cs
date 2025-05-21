@@ -31,6 +31,12 @@ public partial class ProjectService(
         };
     }
 
+    public async Task<IResult<List<ProjectDto>>> GetByUserId(string userId)
+    {
+        var projects = await repository.GetByUserId(userId);
+        return new Result<List<ProjectDto>>(mapper.Map<List<ProjectDto>>(projects));
+    }
+
     public async Task<IResult<ProjectDto?>> GetById(Ulid id, string? userId = null, bool force = false)
     {
         var project = await repository.GetById(id, userId, force);
@@ -167,7 +173,7 @@ public partial class ProjectService(
         if (existingProject is null) return Result<ProjectDto>.NotFound();
 
         var member = existingProject.Members.FirstOrDefault(member => member.UserId == userId);
-        if (member is null || (!member.IsOwner && !member.Permissions.HasFlag(ProjectMemberPermissions.EditProject)))
+        if (member is null || (!member.IsOwner && !member.Permissions.HasFlag(ProjectMemberPermissions.PublishProject)))
         {
             throw new ForbiddenException("You do not have permission to edit this project");
         }
