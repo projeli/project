@@ -99,6 +99,16 @@ public class ProjectRepository(ProjectServiceDbContext database, IBusRepository 
             .ToListAsync();
     }
 
+    public async Task<List<Project>> GetByIds(List<Ulid> ids, string? userId)
+    {
+        return await database.Projects
+            .AsNoTracking()
+            .Where(project => ids.Contains(project.Id) &&
+                              (project.Status == ProjectStatus.Published ||
+                               project.Members.Any(member => member.UserId == userId)))
+            .ToListAsync();
+    }
+
     public async Task<Project?> GetById(Ulid id, string? userId = null, bool force = false)
     {
         return await database.Projects

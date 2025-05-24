@@ -8,8 +8,11 @@ using Projeli.ProjectService.Application.Dtos;
 using Projeli.ProjectService.Application.Services.Interfaces;
 using Projeli.Shared.Application.Exceptions.Http;
 using Projeli.Shared.Application.Messages.Files;
+using Projeli.Shared.Application.Messages.Notifications;
 using Projeli.Shared.Application.Messages.Projects;
 using Projeli.Shared.Domain.Models.Files;
+using Projeli.Shared.Domain.Models.Notifications;
+using Projeli.Shared.Domain.Models.Notifications.Types.Projects;
 using Projeli.Shared.Domain.Results;
 
 namespace Projeli.ProjectService.Application.Services;
@@ -38,6 +41,12 @@ public partial class ProjectService(
     public async Task<IResult<List<ProjectDto>>> GetByUserId(string userId)
     {
         var projects = await repository.GetByUserId(userId);
+        return new Result<List<ProjectDto>>(mapper.Map<List<ProjectDto>>(projects));
+    }
+
+    public async Task<IResult<List<ProjectDto>>> GetByIds(List<Ulid> ids, string? userId)
+    {
+        var projects = await repository.GetByIds(ids, userId);
         return new Result<List<ProjectDto>>(mapper.Map<List<ProjectDto>>(projects));
     }
 
@@ -132,10 +141,11 @@ public partial class ProjectService(
                 ProjectId = updatedProject.Id,
                 ProjectName = updatedProject.Name,
                 ProjectSlug = updatedProject.Slug,
+                ProjectImageUrl = updatedProject.ImageUrl,
                 UserId = userId
             });
         }
-        
+
         return updatedProject is not null
             ? new Result<ProjectDto>(mapper.Map<ProjectDto>(updatedProject))
             : Result<ProjectDto>.Fail("Failed to update project");
@@ -215,6 +225,48 @@ public partial class ProjectService(
 
         var updatedProject = await repository.UpdateStatus(id, status);
 
+        if (updatedProject is not null)
+        {
+            if (updatedProject.Status == ProjectStatus.Archived)
+            {
+                Console.WriteLine($"Sending archive notification to: {string.Join(", ", existingProject.Members.Select(x => x.UserId))}");
+                await busRepository.Publish(new AddNotificationsMessage
+                {
+                    Notifications = existingProject.Members
+                        .Select(x => new NotificationMessage
+                        {
+                            UserId = x.UserId,
+                            Type = NotificationType.ProjectArchived,
+                            Body = new ProjectArchived
+                            {
+                                ProjectId = updatedProject.Id,
+                                PerformerId = userId
+                            },
+                            IsRead = x.UserId == userId,
+                        }).ToList()
+                });
+            }
+            else if (updatedProject.Status == ProjectStatus.Published)
+            {
+                Console.WriteLine($"Sending publish notification to: {string.Join(", ", existingProject.Members.Select(x => x.UserId))}");
+                await busRepository.Publish(new AddNotificationsMessage
+                {
+                    Notifications = existingProject.Members
+                        .Select(x => new NotificationMessage
+                        {
+                            UserId = x.UserId,
+                            Type = NotificationType.ProjectPublished,
+                            Body = new ProjectPublished
+                            {
+                                ProjectId = updatedProject.Id,
+                                PerformerId = userId
+                            },
+                            IsRead = x.UserId == userId,
+                        }).ToList()
+                });
+            }
+        }
+
         return updatedProject is not null
             ? new Result<ProjectDto>(mapper.Map<ProjectDto>(updatedProject))
             : Result<ProjectDto>.Fail("Failed to update project");
@@ -255,7 +307,7 @@ public partial class ProjectService(
                 ToUserId = newOwnerUserId
             });
         }
-        
+
         return updatedProject is not null
             ? new Result<ProjectDto>(mapper.Map<ProjectDto>(updatedProject))
             : Result<ProjectDto>.Fail("Failed to update project");
@@ -326,6 +378,23 @@ public partial class ProjectService(
                 UserId = userId
             });
             
+            await busRepository.Publish(new AddNotificationsMessage
+            {
+                Notifications = existingProject.Members
+                    .Select(x => new NotificationMessage
+                    {
+                        UserId = x.UserId,
+                        Type = NotificationType.ProjectDeleted,
+                        Body = new ProjectDeleted
+                        {
+                            ProjectId = existingProject.Id,
+                            ProjectName = existingProject.Name,
+                            PerformerId = userId
+                        },
+                        IsRead = x.UserId == userId,
+                    }).ToList()
+            });
+
             if (existingProject.ImageUrl is not null)
             {
                 await busRepository.Publish(new FileDeleteMessage
@@ -337,7 +406,7 @@ public partial class ProjectService(
                 });
             }
         }
-        
+
         return success
             ? new Result<ProjectDto?>(mapper.Map<ProjectDto>(existingProject))
             : Result<ProjectDto?>.Fail("Failed to delete project");

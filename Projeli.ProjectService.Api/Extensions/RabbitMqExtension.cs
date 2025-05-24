@@ -1,6 +1,7 @@
 ﻿using MassTransit;
 using Projeli.ProjectService.Infrastructure.Messaging.Consumers;
 using Projeli.Shared.Application.Messages.Files;
+using Projeli.Shared.Application.Messages.Notifications;
 using Projeli.Shared.Application.Messages.Projects;
 using Projeli.Shared.Application.Messages.Projects.Members;
 using Projeli.Shared.Infrastructure.Exceptions;
@@ -48,6 +49,8 @@ public static class RabbitMqExtension
                 config.PublishFanOut<ProjectDeletedMessage>();
                 config.PublishFanOut<FileStoreMessage>();
                 config.PublishFanOut<FileDeleteMessage>();
+                config.PublishFanOut<AddNotificationMessage>();
+                config.PublishFanOut<AddNotificationsMessage>();
             });
         });
     }

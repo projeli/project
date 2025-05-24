@@ -23,9 +23,16 @@ public class ProjectsController(IProjectService projectService, IMapper mapper) 
         [FromQuery] string[]? tags = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
-        [FromQuery] string? userId = null
+        [FromQuery] string? userId = null,
+        [FromQuery] List<Ulid>? ids = null
     )
     {
+        if (ids is not null && ids.Count > 0)
+        {
+            var projectsByIdsResult = await projectService.GetByIds(ids, User.TryGetId());
+            return HandleResult(projectsByIdsResult);
+        }
+
         var projectsResult =
             await projectService.Get(query, order, categories, tags, page, pageSize, userId, User.TryGetId());
 

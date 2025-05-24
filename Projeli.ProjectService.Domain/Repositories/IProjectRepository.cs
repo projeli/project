@@ -10,13 +10,16 @@ public interface IProjectRepository
         int page, int pageSize, string? fromUserId = null, string? userId = null);
 
     Task<List<Project>> GetByUserId(string userId);
+    Task<List<Project>> GetByIds(List<Ulid> ids, string? userId);
     Task<Project?> GetById(Ulid id, string? userId = null, bool force = false);
     Task<Project?> GetBySlug(string slug, string? userId = null, bool force = false);
     Task<Project?> Create(Project project);
     Task<Project?> Update(Project project);
     Task<Project?> UpdateStatus(Ulid id, ProjectStatus status);
+
     Task<Project?> UpdateOwnership(Ulid id, Ulid fromMemberId, Ulid toMemberId,
         ProjectMemberPermissions fromPermissions, ProjectMemberPermissions toPermissions);
+
     Task<Project?> UpdateImageUrl(Ulid projectId, string filePath);
     Task UpdateImage(Ulid id, IFormFile image, string userId);
     Task<bool> Delete(Ulid id);

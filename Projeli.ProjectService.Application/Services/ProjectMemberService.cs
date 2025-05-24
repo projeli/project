@@ -5,7 +5,10 @@ using Projeli.ProjectService.Application.Services.Interfaces;
 using Projeli.ProjectService.Domain.Models;
 using Projeli.ProjectService.Domain.Repositories;
 using Projeli.Shared.Application.Exceptions.Http;
+using Projeli.Shared.Application.Messages.Notifications;
 using Projeli.Shared.Application.Messages.Projects.Members;
+using Projeli.Shared.Domain.Models.Notifications;
+using Projeli.Shared.Domain.Models.Notifications.Types.Projects;
 using Projeli.Shared.Domain.Results;
 
 namespace Projeli.ProjectService.Application.Services;
@@ -66,6 +69,21 @@ public partial class ProjectMemberService(
                 ProjectId = projectId,
                 UserId = userId,
                 PerformingUserId = performingUserId,
+            });
+
+            await busRepository.Publish(new AddNotificationMessage
+            {
+                Notification = new NotificationMessage
+                {
+                    UserId = userId,
+                    Type = NotificationType.ProjectMemberAdded,
+                    Body = new ProjectMemberAdded
+                    {
+                        ProjectId = projectId,
+                        PerformerId = performingUserId,
+                    },
+                    IsRead = false,
+                }
             });
         }
 
@@ -163,7 +181,8 @@ public partial class ProjectMemberService(
         }
 
         var difference = requestPermissions ^ memberToUpdate.Permissions;
-        if (!performingMember.IsOwner && difference != ProjectMemberPermissions.None && !performingMember.Permissions.HasFlag(difference))
+        if (!performingMember.IsOwner && difference != ProjectMemberPermissions.None &&
+            !performingMember.Permissions.HasFlag(difference))
         {
             throw new ForbiddenException("You can only add permissions that you have.");
         }
@@ -219,8 +238,22 @@ public partial class ProjectMemberService(
                 UserId = targetUserId,
                 PerformingUserId = performingUserId ?? targetUserId
             });
+
+            await busRepository.Publish(new AddNotificationMessage
+            {
+                Notification = new NotificationMessage
+                {
+                    UserId = targetUserId,
+                    Type = NotificationType.ProjectMemberRemoved,
+                    Body = new ProjectMemberRemoved
+                    {
+                        ProjectId = projectId,
+                    },
+                    IsRead = false,
+                }
+            });
         }
-        
+
         return success
             ? new Result<ProjectMemberDto>(mapper.Map<ProjectMemberDto>(targetMember))
             : Result<ProjectMemberDto>.Fail("Failed to delete project member");
