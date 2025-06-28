@@ -117,8 +117,7 @@ public partial class ProjectService(
         {
             throw new ForbiddenException("You do not have permission to edit this project");
         }
-
-
+        
         existingProject.Name = projectDto.Name;
         existingProject.Slug = projectDto.Slug;
         existingProject.Summary = projectDto.Summary;
@@ -182,7 +181,7 @@ public partial class ProjectService(
         if (existingProject is null) return Result<ProjectDto>.NotFound();
 
         var member = existingProject.Members.FirstOrDefault(member => member.UserId == userId);
-        if (member is null || (!member.IsOwner && !member.Permissions.HasFlag(ProjectMemberPermissions.EditProject)))
+        if (member is null || (!member.IsOwner && !member.Permissions.HasFlag(ProjectMemberPermissions.ManageTags)))
         {
             throw new ForbiddenException("You do not have permission to edit this project");
         }
@@ -205,7 +204,7 @@ public partial class ProjectService(
         if (existingProject is null) return Result<ProjectDto>.NotFound();
 
         var member = existingProject.Members.FirstOrDefault(member => member.UserId == userId);
-        if (member is null || (!member.IsOwner && !member.Permissions.HasFlag(ProjectMemberPermissions.PublishProject)))
+        if (!CanEditProjectStatus(member, status))
         {
             throw new ForbiddenException("You do not have permission to edit this project");
         }
@@ -229,7 +228,6 @@ public partial class ProjectService(
         {
             if (updatedProject.Status == ProjectStatus.Archived)
             {
-                Console.WriteLine($"Sending archive notification to: {string.Join(", ", existingProject.Members.Select(x => x.UserId))}");
                 await busRepository.Publish(new AddNotificationsMessage
                 {
                     Notifications = existingProject.Members
@@ -248,7 +246,6 @@ public partial class ProjectService(
             }
             else if (updatedProject.Status == ProjectStatus.Published)
             {
-                Console.WriteLine($"Sending publish notification to: {string.Join(", ", existingProject.Members.Select(x => x.UserId))}");
                 await busRepository.Publish(new AddNotificationsMessage
                 {
                     Notifications = existingProject.Members
@@ -270,6 +267,20 @@ public partial class ProjectService(
         return updatedProject is not null
             ? new Result<ProjectDto>(mapper.Map<ProjectDto>(updatedProject))
             : Result<ProjectDto>.Fail("Failed to update project");
+    }
+
+    private static bool CanEditProjectStatus(ProjectMember? member, ProjectStatus status)
+    {
+        if (member == null) return false;
+        if (member.IsOwner) return true;
+
+        return status switch
+        {
+            ProjectStatus.Review => member.Permissions.HasFlag(ProjectMemberPermissions.PublishProject),
+            ProjectStatus.Published => member.Permissions.HasFlag(ProjectMemberPermissions.PublishProject),
+            ProjectStatus.Archived => member.Permissions.HasFlag(ProjectMemberPermissions.ArchiveProject),
+            _ => false
+        };
     }
 
     public async Task<IResult<ProjectDto?>> UpdateOwnership(Ulid id, string newOwnerUserId, string userId)
@@ -377,7 +388,7 @@ public partial class ProjectService(
                 ProjectId = existingProject.Id,
                 UserId = userId
             });
-            
+
             await busRepository.Publish(new AddNotificationsMessage
             {
                 Notifications = existingProject.Members
