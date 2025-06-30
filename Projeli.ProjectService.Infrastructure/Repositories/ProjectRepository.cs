@@ -196,7 +196,12 @@ public class ProjectRepository(ProjectServiceDbContext database, IBusRepository 
         if (existingProject is null) return null;
 
         existingProject.Status = status;
-        existingProject.PublishedAt ??= DateTime.UtcNow;
+        
+        if (status == ProjectStatus.Published)
+        {
+            existingProject.PublishedAt ??= DateTime.UtcNow;
+        }
+        
         await database.SaveChangesAsync();
 
         return existingProject;
