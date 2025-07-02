@@ -8,7 +8,7 @@ public static class RepositoriesExtension
     public static void AddProjectServiceRepositories(this IServiceCollection services)
     {
         services.AddScoped<IProjectRepository, ProjectRepository>();
-        services.AddScoped<IProjectTagRepository, ProjectTagRepository>();
+        services.AddScoped<IProjectLinkRepository, ProjectLinkRepository>();
         services.AddScoped<IProjectMemberRepository, ProjectMemberRepository>();
         services.AddScoped<IBusRepository, BusRepository>();
     }

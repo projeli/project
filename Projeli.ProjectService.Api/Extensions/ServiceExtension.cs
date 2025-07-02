@@ -8,5 +8,6 @@ public static class ServiceExtension
     {
         services.AddScoped<IProjectService, Application.Services.ProjectService>();
         services.AddScoped<IProjectMemberService, Application.Services.ProjectMemberService>();
+        services.AddScoped<IProjectLinkService, Application.Services.ProjectLinkService>();
     }
 }

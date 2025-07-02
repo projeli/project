@@ -19,6 +19,8 @@ public class ProjectLink
     
     public ProjectLinkType Type { get; set; }
     
+    public ushort Order { get; set; }
+    
     
     public Project Project { get; set; }
 }

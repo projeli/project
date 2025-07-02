@@ -4,7 +4,6 @@ using Projeli.ProjectService.Domain.Models;
 using Projeli.ProjectService.Domain.Repositories;
 using Projeli.ProjectService.Infrastructure.Database;
 using Projeli.Shared.Application.Messages.Files;
-using Projeli.Shared.Application.Messages.Projects;
 using Projeli.Shared.Domain.Models.Files;
 using Projeli.Shared.Domain.Results;
 
@@ -113,9 +112,9 @@ public class ProjectRepository(ProjectServiceDbContext database, IBusRepository 
     {
         return await database.Projects
             .AsNoTracking()
-            .Include(project => project.Members)
-            .Include(project => project.Tags)
-            .Include(project => project.Links)
+            .Include(project => project.Members.OrderBy(m => m.IsOwner).ThenBy(m => m.Id))
+            .Include(project => project.Tags.OrderBy(t => t.Name).Take(5))
+            .Include(project => project.Links.OrderBy(o => o.Order).Take(10))
             .Where(project => project.Id == id)
             .FirstOrDefaultAsync(project =>
                 force || project.Status == ProjectStatus.Published ||
@@ -127,8 +126,8 @@ public class ProjectRepository(ProjectServiceDbContext database, IBusRepository 
         return await database.Projects
             .AsNoTracking()
             .Include(project => project.Members)
-            .Include(project => project.Tags)
-            .Include(project => project.Links)
+            .Include(project => project.Tags.OrderBy(t => t.Name).Take(5))
+            .Include(project => project.Links.OrderBy(o => o.Order).Take(10))
             .Where(project => project.Slug == slug)
             .FirstOrDefaultAsync(project =>
                 force || project.Status == ProjectStatus.Published ||
@@ -170,7 +169,6 @@ public class ProjectRepository(ProjectServiceDbContext database, IBusRepository 
         var existingProject = await database.Projects
             .Include(p => p.Members)
             .Include(p => p.Tags)
-            .Include(p => p.Links)
             .FirstOrDefaultAsync(p => p.Id == project.Id);
 
         if (existingProject is null) return null;
@@ -196,12 +194,12 @@ public class ProjectRepository(ProjectServiceDbContext database, IBusRepository 
         if (existingProject is null) return null;
 
         existingProject.Status = status;
-        
+
         if (status == ProjectStatus.Published)
         {
             existingProject.PublishedAt ??= DateTime.UtcNow;
         }
-        
+
         await database.SaveChangesAsync();
 
         return existingProject;

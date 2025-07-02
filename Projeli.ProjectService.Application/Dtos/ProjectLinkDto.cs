@@ -9,4 +9,5 @@ public class ProjectLinkDto
     public string Name { get; set; }
     public string Url { get; set; }
     public ProjectLinkType Type { get; set; }
+    public ushort Order { get; set; }
 }
